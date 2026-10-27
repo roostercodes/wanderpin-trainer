@@ -464,7 +464,7 @@ def main():
     except Exception as e: gh_error(f"Saving the collection failed: {e}")
 
     # learn
-    summary = []
+    summary, detail = [], {}
     for cat in STYLE_CATS + DET_CATS:
         d = store.data[cat]
         if len(d["y"]) < 12: summary.append((cat, "not enough examples yet", len(d["y"]))); continue
@@ -474,6 +474,7 @@ def main():
         try: save_head(cat, pack_head(h))
         except Exception as e: gh_error(f"Saving {cat} failed: {e}"); summary.append((cat, f"save failed: {e}", h["n"])); continue
         summary.append((cat, f"{len(h['classes'])} groups, {round(h['acc'] * 100)}% right, {round(h['acc3'] * 100)}% top-3", h["n"]))
+        detail[cat] = {"acc": h["acc"], "acc3": h["acc3"], "n": h["n"], "classes": len(h["classes"])}
         log("saved", cat, summary[-1][1])
 
     run = {"at": datetime.now(timezone.utc).isoformat(), "minutes": round((time.time() - T0) / 60, 1), "visits": visits,
@@ -485,6 +486,13 @@ def main():
             f.write(f"## Wanderpin training run\n{run['photos']} street photos and {run['plates']} plate photos in {run['minutes']} min.\n\n| What | Examples | Result |\n|---|---|---|\n")
             for c, s, n in summary: f.write(f"| {c} | {n} | {s} |\n")
     log("done:", json.dumps(run))
+    # a row for the progress page in the game
+    try:
+        row = {"minutes": run["minutes"], "visits": visits, "photos": run["photos"], "plates": run["plates"], "heads": detail,
+               "examples": {c: len(d["y"]) for c, d in store.data.items()}}
+        r = http.post(f"{SB_URL}/rest/v1/wp_scan_runs", headers=sb_headers({"content-type": "application/json"}), data=json.dumps(row), timeout=60)
+        if not r.ok: gh_error(f"Couldn't record the run for the progress page: {r.status_code} {r.text[:150]} (run the newest setup SQL)")
+    except Exception as e: gh_error(f"Couldn't record the run: {e}")
     bad = [c for c, s, _ in summary if s.startswith("save failed")]
     if bad and len(bad) == len([1 for _, s, _ in summary if not s.startswith(("not enough", "needs", "couldn"))]): raise SystemExit("Nothing could be saved to Supabase (see errors above).")
 
