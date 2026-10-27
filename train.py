@@ -28,7 +28,8 @@ SB_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 MLY_TOKEN = os.environ.get("MAPILLARY_TOKEN", "")
 MINUTES = float(os.environ.get("MINUTES") or 40)          # time spent collecting photos each run
 PER_VISIT = int(os.environ.get("PER_VISIT") or 6)          # Mapillary photos per country visit
-MAX_PER_CLASS = int(os.environ.get("MAX_PER_CLASS") or 400)  # cap per country per style (keeps files small and fair)
+MAX_PER_CLASS = int(os.environ.get("MAX_PER_CLASS") or 600)  # cap per country per style (keeps files small and fair)
+MAX_PER_CHECK = int(os.environ.get("MAX_PER_CHECK") or 4000) # cap per yes/no answer for the "is it really there?" checks
 SEED = os.environ.get("SEED")
 MLY = os.environ.get("MLY_BASE", "https://graph.mapillary.com")
 COMMONS = os.environ.get("COMMONS_API", "https://commons.wikimedia.org/w/api.php")
@@ -301,44 +302,53 @@ class Store:
     def load(self):
         for cat in STYLE_CATS + DET_CATS:
             blob = storage_get(f"train/{cat}.npz")
-            d = {"e": [], "y": [], "src": set()}
+            d = {"e": [], "y": [], "g": [], "src": set()}
             if blob:
                 z = np.load(io.BytesIO(blob), allow_pickle=False)
                 d["e"] = list(z["e"]); d["y"] = [str(v) for v in z["y"]]; d["src"] = set(str(v) for v in z["src"])
+                d["g"] = [str(v) for v in z["g"]] if "g" in z.files else [f"old{i}" for i in range(len(d["y"]))]
             self.data[cat] = d
             for y in d["y"]: self.cnt[(cat, y)] = self.cnt.get((cat, y), 0) + 1
         log("collection so far:", {k: len(v["y"]) for k, v in self.data.items()})
     def count(self, cat, label): return self.cnt.get((cat, label), 0)
-    def add(self, cat, label, emb, src=None):
+    def add(self, cat, label, emb, src=None, group=""):
         d = self.data[cat]
         q = np.clip(np.round(emb * 127 / max(1e-6, float(np.abs(emb).max()))), -127, 127).astype(np.int8)
-        if self.count(cat, label) >= MAX_PER_CLASS:   # full: replace a random old one so the collection keeps freshening
+        cap = MAX_PER_CHECK if cat.startswith("det_") else MAX_PER_CLASS
+        if self.count(cat, label) >= cap:   # full: replace a random old one so the collection keeps freshening
             idx = [i for i, y in enumerate(d["y"]) if y == label]
-            d["e"][random.choice(idx)] = q; return
-        d["e"].append(q); d["y"].append(label); self.cnt[(cat, label)] = self.count(cat, label) + 1
+            j = random.choice(idx); d["e"][j] = q; d["g"][j] = group; return
+        d["e"].append(q); d["y"].append(label); d["g"].append(group); self.cnt[(cat, label)] = self.count(cat, label) + 1
         if src: d["src"].add(src)
     def save(self):
         for cat, d in self.data.items():
             if not d["y"]: continue
             buf = io.BytesIO()
-            np.savez_compressed(buf, e=np.stack(d["e"]), y=np.array(d["y"], dtype="U4"), src=np.array(sorted(d["src"])[-200000:], dtype="U64"))
+            np.savez_compressed(buf, e=np.stack(d["e"]), y=np.array(d["y"], dtype="U4"), g=np.array(d["g"], dtype="U24"), src=np.array(sorted(d["src"])[-200000:], dtype="U64"))
             storage_put(f"train/{cat}.npz", buf.getvalue())
         log("collection saved:", {k: len(v["y"]) for k, v in self.data.items()})
 
 
 # ---------------- learning ----------------
-def train_head(E, y):
+def train_head(E, y, groups=None):
     from sklearn.linear_model import LogisticRegression
     from sklearn.model_selection import train_test_split
     labels, counts = np.unique(y, return_counts=True)
     keep = set(labels[counts >= 4])
     m = np.array([v in keep for v in y]); E, y = E[m], y[m]
+    groups = np.array(groups)[m] if groups is not None else None
     classes = sorted(keep)
     if len(classes) < 2: return None
     X = E.astype(np.float32); X /= np.linalg.norm(X, axis=1, keepdims=True) + 1e-8
     # honest score: hold back 20% the model never sees, try a few strengths, keep the best
-    strat = y if min(np.unique(y, return_counts=True)[1]) >= 2 and math.ceil(0.2 * len(y)) >= len(classes) else None
-    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2, random_state=0, stratify=strat)
+    # photos from the same spot look alike, so the test photos come from spots the model never trained on
+    if groups is not None and len(set(groups)) >= 10:
+        from sklearn.model_selection import GroupShuffleSplit
+        tr, te = next(GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=0).split(X, y, groups))
+        Xtr, Xte, ytr, yte = X[tr], X[te], y[tr], y[te]
+    else:
+        strat = y if min(np.unique(y, return_counts=True)[1]) >= 2 and math.ceil(0.2 * len(y)) >= len(classes) else None
+        Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2, random_state=0, stratify=strat)
     best = None
     for C in (0.5, 2.0, 8.0):
         clf = LogisticRegression(C=C, max_iter=3000, class_weight="balanced")
@@ -394,7 +404,9 @@ def main():
                     pt = random_point(cc)
                     if not pt: continue
                     lat, lng = pt
+                spot = f"{cc}{round(lat, 1)}_{round(lng, 1)}"
                 for im in mly_search(lat, lng):
+                    im["_spot"] = spot
                     if im["id"] in store.data["scene"]["src"]: continue
                     g = (im.get("computed_geometry") or im.get("geometry") or {}).get("coordinates")
                     if g and country_at(g[1], g[0]) != cc: continue
@@ -404,13 +416,14 @@ def main():
                 if not res: continue
                 img, crops = res
                 embs, boll = model.run([(img, b) for _, b in crops])
+                g = im.get("_spot", "")
                 for (tag, _), e, pb in zip(crops, embs, boll):
                     if tag == "bollard?":
-                        if pb >= 0.6: store.add("bollard", cc, e); store.add("det_bollard", "yes", e)
+                        if pb >= 0.6: store.add("bollard", cc, e, group=g); store.add("det_bollard", "yes", e, group=g)
                     elif tag == "neg":
-                        for dc in DET_CATS: store.add(dc, "no", e)
-                    elif tag == "scene": store.add("scene", cc, e, src=im["id"])
-                    else: store.add(tag, cc, e); store.add("det_" + tag, "yes", e)
+                        for dc in DET_CATS: store.add(dc, "no", e, group=g)
+                    elif tag == "scene": store.add("scene", cc, e, src=im["id"], group=g)
+                    else: store.add(tag, cc, e, group=g); store.add("det_" + tag, "yes", e, group=g)
                 got += 1
             stats[cc]["photos"] += got
             # 2) plates, until each country has a decent set
@@ -421,7 +434,7 @@ def main():
                     W, H = img.size; s = min(W, H)
                     blurred = img.filter(ImageFilter.GaussianBlur(max(3, W / 90)))   # Street View blurs plates, so learn the blurred look too
                     items = [(im2, b) for im2 in (img, blurred) for b in ((0, 0, W, H), ((W - s) / 2, (H - s) / 2, s, s))]
-                    for e in model.run(items)[0]: store.add("plate", cc, e)
+                    for e in model.run(items)[0]: store.add("plate", cc, e, group=f"p{hash(img.tobytes()[:4096]) % 10**9}")
                     stats[cc]["plates"] += 1
             if visits % 10 == 0: log(f"{visits} visits; latest {cc}: {got} photos; collection: " + ", ".join(f"{k}={len(v['y'])}" for k, v in store.data.items()))
         except SystemExit: raise
@@ -436,7 +449,7 @@ def main():
     for cat in STYLE_CATS + DET_CATS:
         d = store.data[cat]
         if len(d["y"]) < 12: summary.append((cat, "not enough examples yet", len(d["y"]))); continue
-        try: h = train_head(np.stack(d["e"]).astype(np.float32), np.array(d["y"]))
+        try: h = train_head(np.stack(d["e"]).astype(np.float32), np.array(d["y"]), d["g"])
         except Exception as e: summary.append((cat, f"couldn't learn yet ({e})", len(d["y"]))); log(cat, "failed:", e); continue
         if not h: summary.append((cat, "needs at least 2 groups", len(d["y"]))); continue
         try: save_head(cat, pack_head(h))

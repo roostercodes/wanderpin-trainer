@@ -2,12 +2,13 @@ name: Train the clue scanner
 
 on:
   schedule:
-    - cron: "23 7 * * *"   # every night, about 3:23 AM Eastern
+    - cron: "23 7 * * *"   # about 3:23 AM Eastern
+    - cron: "41 19 * * *"  # about 3:41 PM Eastern
   workflow_dispatch:         # lets you start it from the Actions tab
     inputs:
       minutes:
         description: "Minutes to spend collecting photos"
-        default: "40"
+        default: "120"
 
 permissions:
   contents: write            # to save stats.json after each run
@@ -19,7 +20,7 @@ concurrency:
 jobs:
   train:
     runs-on: ubuntu-latest
-    timeout-minutes: 100
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -32,7 +33,7 @@ jobs:
           MAPILLARY_TOKEN: ${{ secrets.MAPILLARY_TOKEN }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          MINUTES: ${{ github.event.inputs.minutes || '40' }}
+          MINUTES: ${{ github.event.inputs.minutes || '120' }}
         run: python train.py
       - name: Save run stats
         if: success()
