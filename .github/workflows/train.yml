@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: write            # to save stats.json once a day
+  actions: write             # to start the next run when this one ends
 
 concurrency:
   group: train
@@ -59,3 +60,9 @@ jobs:
           git add stats.json
           git commit -m "Training stats $(date -u +%Y-%m-%d)" || echo "nothing to save"
           git pull --rebase -q && git push
+      # GitHub's hourly timer can lag or skip, so each run also starts the next one
+      - name: Start the next run
+        if: always() && github.event_name != 'workflow_dispatch' || always() && github.event.inputs.minutes != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run train.yml --ref main -f minutes=45 || echo "couldn't start the next run; the hourly timer will"
