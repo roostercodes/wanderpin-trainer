@@ -59,6 +59,7 @@ STD = np.array([0.26862954, 0.26130258, 0.27577711], np.float32)
 
 T0 = time.time()
 def log(*a): print(f"[{time.time() - T0:7.1f}s]", *a, flush=True)
+def gh_error(msg): print("::error::" + str(msg).replace("\n", " | ")[:900], flush=True)   # shows on the run page (and to the API)
 http = requests.Session(); http.headers.update(UA)
 
 
@@ -427,7 +428,8 @@ def main():
         except Exception as e:
             log(f"{cc}: skipped ({e})"); traceback.print_exc(limit=1)
     pool.shutdown(wait=False)
-    store.save()
+    try: store.save()
+    except Exception as e: gh_error(f"Saving the collection failed: {e}")
 
     # learn
     summary = []
@@ -437,7 +439,8 @@ def main():
         try: h = train_head(np.stack(d["e"]).astype(np.float32), np.array(d["y"]))
         except Exception as e: summary.append((cat, f"couldn't learn yet ({e})", len(d["y"]))); log(cat, "failed:", e); continue
         if not h: summary.append((cat, "needs at least 2 groups", len(d["y"]))); continue
-        save_head(cat, pack_head(h))
+        try: save_head(cat, pack_head(h))
+        except Exception as e: gh_error(f"Saving {cat} failed: {e}"); summary.append((cat, f"save failed: {e}", h["n"])); continue
         summary.append((cat, f"{len(h['classes'])} groups, {round(h['acc'] * 100)}% right, {round(h['acc3'] * 100)}% top-3", h["n"]))
         log("saved", cat, summary[-1][1])
 
@@ -450,6 +453,14 @@ def main():
             f.write(f"## Wanderpin training run\n{run['photos']} street photos and {run['plates']} plate photos in {run['minutes']} min.\n\n| What | Examples | Result |\n|---|---|---|\n")
             for c, s, n in summary: f.write(f"| {c} | {n} | {s} |\n")
     log("done:", json.dumps(run))
+    bad = [c for c, s, _ in summary if s.startswith("save failed")]
+    if bad and len(bad) == len([1 for _, s, _ in summary if not s.startswith(("not enough", "needs", "couldn"))]): raise SystemExit("Nothing could be saved to Supabase (see errors above).")
 
 if __name__ == "__main__":
-    main()
+    try: main()
+    except SystemExit as e:
+        if e.code not in (None, 0): gh_error(e.code)
+        raise
+    except Exception as e:
+        gh_error(f"{type(e).__name__}: {e} @ " + " < ".join(f"{f.name}:{f.lineno}" for f in traceback.extract_tb(e.__traceback__)[-3:]))
+        raise
