@@ -64,7 +64,8 @@ http = requests.Session(); http.headers.update(UA)
 
 # ---------------- Supabase ----------------
 def sb_headers(extra=None):
-    h = {"apikey": SB_KEY, "Authorization": f"Bearer {SB_KEY}"}
+    # new sb_secret_ keys go only on the apikey header; old service_role keys (eyJ…) also go on Authorization
+    h = {"apikey": SB_KEY} if SB_KEY.startswith("sb_") else {"apikey": SB_KEY, "Authorization": f"Bearer {SB_KEY}"}
     h.update(extra or {}); return h
 def storage_get(path):
     r = http.get(f"{SB_URL}/storage/v1/object/wp-models/{path}", headers=sb_headers(), timeout=120)

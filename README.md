@@ -18,7 +18,7 @@ Add three secrets under **Settings → Secrets and variables → Actions → New
 |---|---|
 | `MAPILLARY_TOKEN` | your Mapillary client token (starts with `MLY|`) |
 | `SUPABASE_URL` | your project URL, like `https://xxxx.supabase.co` |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API Keys → `service_role` / secret key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API Keys → the **secret** key (`sb_secret_…`). The older `service_role` key (`eyJ…`) also works. |
 
 Then open **Actions → Train the clue scanner → Run workflow** to start the first run. After that it runs every night.
 
