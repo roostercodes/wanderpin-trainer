@@ -98,6 +98,16 @@ def cached_download(url, name, check_size=False):
     with open(path, "wb") as f: f.write(r.content)
     return r.content
 
+# ---------------- live progress for the in-game page ----------------
+RUN_KEY = os.environ.get("GITHUB_RUN_ID") or f"local-{int(T0)}"
+def report(status, stage, **f):
+    row = {"run_key": RUN_KEY, "status": status, "stage": stage, "updated_at": datetime.now(timezone.utc).isoformat(), "minutes": round((time.time() - T0) / 60, 1)}
+    row.update(f)
+    try:
+        r = http.post(f"{SB_URL}/rest/v1/wp_scan_runs?on_conflict=run_key", headers=sb_headers({"content-type": "application/json", "Prefer": "resolution=merge-duplicates"}), data=json.dumps([row]), timeout=30)
+        if not r.ok and not getattr(report, "warned", False): report.warned = True; gh_error(f"Couldn't update live progress: {r.status_code} {r.text[:150]} (run the newest setup SQL)")
+    except Exception as e: log("progress update failed:", e)
+
 # ---------------- the model ----------------
 class Model:
     def __init__(self, blob, meta):
@@ -401,6 +411,9 @@ def main():
     places = decode_places(cached_download(PLACES_URL, "cities.pbf"))
     country_at, random_point = load_borders(json.loads(cached_download(BORDERS_URL, "borders.geojson")))
     store = Store(); store.load()
+    run_started = datetime.now(timezone.utc).isoformat()
+    report("running", "collecting", at=run_started, photos=0, plates=0, visits=0, examples={c: len(d["y"]) for c, d in store.data.items()})
+    last_report = last_save = time.time()
 
     deadline = T0 + MINUTES * 60
     stats = {cc: {"photos": 0, "plates": 0} for cc in COVERAGE}
@@ -455,6 +468,15 @@ def main():
                     items = [(im2, b) for im2 in (img, blurred) for b in ((0, 0, W, H), ((W - s) / 2, (H - s) / 2, s, s))]
                     for e in model.run(items)[0]: store.add("plate", cc, e, group=f"p{hash(img.tobytes()[:4096]) % 10**9}")
                     stats[cc]["plates"] += 1
+            if time.time() - last_report > 120:   # every 2 minutes: tell the game how it's going
+                last_report = time.time()
+                report("running", "collecting", photos=sum(v["photos"] for v in stats.values()), plates=sum(v["plates"] for v in stats.values()), visits=visits,
+                       examples={c: len(d["y"]) for c, d in store.data.items()})
+            if time.time() - last_save > 900:     # every 15 minutes: keep a checkpoint so a stopped run doesn't lose its photos
+                last_save = time.time()
+                try:
+                    bk = BACKUP; globals()["BACKUP"] = False; store.save(); globals()["BACKUP"] = bk
+                except Exception as e: log("checkpoint failed:", e)
             if visits % 10 == 0: log(f"{visits} visits; latest {cc}: {got} photos; collection: " + ", ".join(f"{k}={len(v['y'])}" for k, v in store.data.items()))
         except SystemExit: raise
         except Exception as e:
@@ -464,6 +486,8 @@ def main():
     except Exception as e: gh_error(f"Saving the collection failed: {e}")
 
     # learn
+    report("running", "learning", photos=sum(v["photos"] for v in stats.values()), plates=sum(v["plates"] for v in stats.values()), visits=visits,
+           examples={c: len(d["y"]) for c, d in store.data.items()})
     summary, detail = [], {}
     for cat in STYLE_CATS + DET_CATS:
         d = store.data[cat]
@@ -486,13 +510,9 @@ def main():
             f.write(f"## Wanderpin training run\n{run['photos']} street photos and {run['plates']} plate photos in {run['minutes']} min.\n\n| What | Examples | Result |\n|---|---|---|\n")
             for c, s, n in summary: f.write(f"| {c} | {n} | {s} |\n")
     log("done:", json.dumps(run))
-    # a row for the progress page in the game
-    try:
-        row = {"minutes": run["minutes"], "visits": visits, "photos": run["photos"], "plates": run["plates"], "heads": detail,
-               "examples": {c: len(d["y"]) for c, d in store.data.items()}}
-        r = http.post(f"{SB_URL}/rest/v1/wp_scan_runs", headers=sb_headers({"content-type": "application/json"}), data=json.dumps(row), timeout=60)
-        if not r.ok: gh_error(f"Couldn't record the run for the progress page: {r.status_code} {r.text[:150]} (run the newest setup SQL)")
-    except Exception as e: gh_error(f"Couldn't record the run: {e}")
+    # the finished row for the progress page in the game
+    report("done", "done", at=run_started, visits=visits, photos=run["photos"], plates=run["plates"], heads=detail,
+           examples={c: len(d["y"]) for c, d in store.data.items()})
     bad = [c for c, s, _ in summary if s.startswith("save failed")]
     if bad and len(bad) == len([1 for _, s, _ in summary if not s.startswith(("not enough", "needs", "couldn"))]): raise SystemExit("Nothing could be saved to Supabase (see errors above).")
 
