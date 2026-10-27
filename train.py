@@ -36,6 +36,8 @@ COMMONS = os.environ.get("COMMONS_API", "https://commons.wikimedia.org/w/api.php
 MODEL_URL = os.environ.get("MODEL_URL") or f"{SB_URL}/storage/v1/object/public/wp-models/wanderpin-vision.onnx"
 PLACES_URL = os.environ.get("PLACES_URL", "https://cdn.jsdelivr.net/npm/all-the-cities@3.1.0/cities.pbf")
 BORDERS_URL = os.environ.get("BORDERS_URL", "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_50m_admin_0_countries.geojson")
+CACHE = os.environ.get("CACHE_DIR", "cache")             # kept between runs by GitHub, so Supabase isn't downloaded from every hour
+BACKUP = os.environ.get("BACKUP", "") in ("1", "true")    # also copy the collection to Supabase Storage this run
 UA = {"User-Agent": "WanderpinTrainer/1.0 (https://github.com/roostercodes/wanderpin-trainer)"}
 
 COVERAGE = ("US CA MX GT DO PR CW CO EC PE BO CL AR UY BR GB IE FR ES PT IT DE NL BE LU CH AT DK NO SE FI IS EE LV LT PL CZ SK HU "
@@ -81,6 +83,20 @@ def save_head(hid, data):
                   data=json.dumps([{"id": hid, "data": data, "updated_at": datetime.now(timezone.utc).isoformat()}]), timeout=60)
     if not r.ok: raise RuntimeError(f"saving {hid} failed: {r.status_code} {r.text[:200]} (did you run the newest setup SQL?)")
 
+
+# ---------------- downloads, kept between runs ----------------
+def cached_download(url, name, check_size=False):
+    path = os.path.join(CACHE, name); os.makedirs(CACHE, exist_ok=True)
+    if os.path.exists(path):
+        if not check_size: return open(path, "rb").read()
+        try:   # the model can change: compare sizes with a cheap HEAD request
+            h = http.head(url, timeout=30, allow_redirects=True)
+            if h.ok and int(h.headers.get("content-length", -1)) == os.path.getsize(path): return open(path, "rb").read()
+        except requests.RequestException: return open(path, "rb").read()
+    r = http.get(url, timeout=300)
+    if not r.ok: return None
+    with open(path, "wb") as f: f.write(r.content)
+    return r.content
 
 # ---------------- the model ----------------
 class Model:
@@ -301,7 +317,8 @@ class Store:
         self.cnt = {}    # (cat, label) -> how many
     def load(self):
         for cat in STYLE_CATS + DET_CATS:
-            blob = storage_get(f"train/{cat}.npz")
+            local = os.path.join(CACHE, "train", f"{cat}.npz")
+            blob = open(local, "rb").read() if os.path.exists(local) else storage_get(f"train/{cat}.npz")
             d = {"e": [], "y": [], "g": [], "src": set()}
             if blob:
                 z = np.load(io.BytesIO(blob), allow_pickle=False)
@@ -325,8 +342,10 @@ class Store:
             if not d["y"]: continue
             buf = io.BytesIO()
             np.savez_compressed(buf, e=np.stack(d["e"]), y=np.array(d["y"], dtype="U4"), g=np.array(d["g"], dtype="U24"), src=np.array(sorted(d["src"])[-200000:], dtype="U64"))
-            storage_put(f"train/{cat}.npz", buf.getvalue())
-        log("collection saved:", {k: len(v["y"]) for k, v in self.data.items()})
+            os.makedirs(os.path.join(CACHE, "train"), exist_ok=True)
+            with open(os.path.join(CACHE, "train", f"{cat}.npz"), "wb") as f: f.write(buf.getvalue())
+            if BACKUP: storage_put(f"train/{cat}.npz", buf.getvalue())
+        log("collection saved" + (" (and backed up to Supabase)" if BACKUP else "") + ":", {k: len(v["y"]) for k, v in self.data.items()})
 
 
 # ---------------- learning ----------------
@@ -375,12 +394,12 @@ def main():
     for k, v in {"SUPABASE_URL": SB_URL, "SUPABASE_SERVICE_ROLE_KEY": SB_KEY, "MAPILLARY_TOKEN": MLY_TOKEN}.items():
         if not v: raise SystemExit(f"Missing secret {k}. Add it under GitHub → Settings → Secrets and variables → Actions.")
     meta = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "meta.json")))
-    log("downloading model…"); r = http.get(MODEL_URL, timeout=300)
-    if not r.ok: raise SystemExit(f"Couldn't download the model ({r.status_code}). Is wanderpin-vision.onnx in Supabase Storage → wp-models?")
-    model = Model(r.content, meta)
-    log("downloading cities and borders…")
-    places = decode_places(http.get(PLACES_URL, timeout=300).content)
-    country_at, random_point = load_borders(http.get(BORDERS_URL, timeout=300).json())
+    log("getting the model…"); blob = cached_download(MODEL_URL, "model.onnx", check_size=True)
+    if not blob: raise SystemExit("Couldn't download the model. Is wanderpin-vision.onnx in Supabase Storage → wp-models?")
+    model = Model(blob, meta)
+    log("getting cities and borders…")
+    places = decode_places(cached_download(PLACES_URL, "cities.pbf"))
+    country_at, random_point = load_borders(json.loads(cached_download(BORDERS_URL, "borders.geojson")))
     store = Store(); store.load()
 
     deadline = T0 + MINUTES * 60
