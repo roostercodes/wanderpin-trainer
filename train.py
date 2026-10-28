@@ -825,8 +825,10 @@ def finetune(store, model, places):
     # 5) publish: small int8 ONNX file, then re-embed every cut-out that has a picture
     ver = (model.ver or 0) + 1
     path = os.path.join(CACHE, f"branch-v{ver}.onnx"); fp = path + ".fp32"
+    import inspect
+    kw = {"dynamo": False} if "dynamo" in inspect.signature(torch.onnx.export).parameters else {}   # the classic exporter on every torch version
     torch.onnx.export(br, torch.from_numpy(tok[:2].astype(np.float32)), fp, input_names=["tok"], output_names=["emb2"],
-                      dynamic_axes={"tok": {0: "n"}, "emb2": {0: "n"}}, opset_version=17, dynamo=False)
+                      dynamic_axes={"tok": {0: "n"}, "emb2": {0: "n"}}, opset_version=17, **kw)
     from onnxruntime.quantization import quantize_dynamic, QuantType
     quantize_dynamic(fp, path, op_types_to_quantize=["MatMul", "Gemm"], weight_type=QuantType.QInt8)
     blob = open(path, "rb").read()
