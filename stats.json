@@ -1,9 +1,9 @@
 {
- "at": "2026-10-28T12:54:55.238006+00:00",
- "minutes": 51.1,
- "visits": 1351,
- "photos": 2415,
- "plates": 32,
+ "at": "2026-10-28T14:24:43.167141+00:00",
+ "minutes": 89.1,
+ "visits": 0,
+ "photos": 0,
+ "plates": 0,
  "heads": {
   "scene": "88 groups, 34% right, 53% top-3 (line)",
   "pole": "88 groups, 19% right, 35% top-3 (line)",
@@ -33,5 +33,12 @@
   "scene": 18901,
   "sign": 2745
  },
- "with_pictures": 33092
+ "with_pictures": 33092,
+ "finetune": {
+  "gain": 0.0143,
+  "epochs": 12,
+  "n": 26818,
+  "minutes": 84.4,
+  "published": false
+ }
 }
