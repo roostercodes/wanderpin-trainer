@@ -774,13 +774,13 @@ def finetune(store, model, places):
     yi = np.array([labels[c_all[i]].index(y_all[i]) for i in range(N)])
     opt = torch.optim.AdamW([{"params": br.parameters(), "lr": 3e-5, "weight_decay": 0.05}, {"params": heads.parameters(), "lr": 2e-3, "weight_decay": 1e-4}])
     T = torch.from_numpy(tok); B = torch.from_numpy(base); Y = torch.from_numpy(yi)
-    budget = t_start + FT_MINUTES * 60; step = 0; best = (-1, None); epoch = 0
+    budget = time.time() + FT_MINUTES * 60; step = 0; best = (-1, None); epoch = 0   # the clock starts after the preparation
     def evaluate():
         br.eval(); out = np.zeros((len(va), 512), np.float32)
         with torch.no_grad():
             for i in range(0, len(va), 512): out[i:i + 512] = br(T[va[i:i + 512]].float()).numpy()
         br.train(); return out
-    while time.time() < budget and epoch < 12:
+    while epoch == 0 or (time.time() < budget and epoch < 12):
         epoch += 1; perm = np.random.permutation(tr); br.train()
         for i in range(0, len(perm), 96):
             b = perm[i:i + 96]; x = T[b].float(); e = br(x)
