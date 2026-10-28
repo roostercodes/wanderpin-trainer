@@ -348,11 +348,12 @@ def fetch_image(url):
         im = Image.open(io.BytesIO(r.content)); im.draft("RGB", (2048, 2048)); return im.convert("RGB")
     except Exception: return None
 
-TILE = {"left": {}, "used": 0}   # map square → photos not used yet (so a square is downloaded once per run)
+TILE = {"left": {}, "used": 0, "empty": set()}   # map square → photos not used yet; squares known to be empty (kept between runs)
 def tile_candidates(cc, lat, lng, country_at, seen):
     """Photos in the ~2 km map square around a point, inside the country: one per drive (sequence) first,
     then more from the same drives. The square is remembered, so later trips there cost nothing."""
     x, y = tile_of(lat, lng); key = f"14/{x}/{y}"
+    if key in TILE["empty"]: return [], key   # free: known to have no photos in this country
     if key not in TILE["left"]:
         if TILE["used"] >= TILE_BUDGET: return None, key
         TILE["used"] += 1; TILE["left"][key] = []
@@ -375,6 +376,7 @@ def tile_candidates(cc, lat, lng, country_at, seen):
             if country_at(la, ln, cc) != cc: continue
             left.append({"id": iid, "lat": la, "lng": ln, "pano": bool(props.get("is_pano"))})
         TILE["left"][key] = left
+        if not left: TILE["empty"].add(key)
     left = TILE["left"][key]; out = []
     while left and len(out) < PER_TILE:
         c = left.pop(0)
@@ -870,6 +872,8 @@ def main():
     places = decode_places(cached_download(PLACES_URL, "cities.pbf"))
     country_at, random_point = load_borders(json.loads(cached_download(BORDERS_URL, "borders.geojson")))
     store = Store()
+    try: TILE["empty"] = set(json.load(open(os.path.join(CACHE, "empty_tiles.json"))))
+    except Exception: pass
     run_started = datetime.now(timezone.utc).isoformat()
     report("running", "starting", at=run_started, photos=0, plates=0, visits=0, examples=store.sizes())
 
@@ -884,6 +888,7 @@ def main():
         except Exception as e:
             gh_error(f"Fine-tuning failed: {e}"); traceback.print_exc(); ft_res = {"error": str(e)[:200]}
         if ft_res.get("error") or ft_res.get("skipped"): state_set(ft_at=time.time() - (FT_EVERY_DAYS - 1) * 86400)   # try again tomorrow
+        elif ft_res.get("published") is False and ft_res.get("gain", 0) > 0: state_set(ft_at=time.time() - max(0, FT_EVERY_DAYS - 3) * 86400)   # close: try again in 3 days, with more photos
         report("running", "learning", examples=store.sizes())
         summary, detail = learn(store, model.ver, places)   # heads first (on the new layers, if published)…
         if ft_res.get("published"):                          # …then tell the players to switch
@@ -979,6 +984,9 @@ def main():
                 break
     pool.shutdown(wait=False, cancel_futures=True)
     store.commit()
+    try: json.dump(sorted(TILE["empty"])[-300000:], open(os.path.join(CACHE, "empty_tiles.json"), "w"))
+    except Exception as e: log("couldn't save empty squares:", e)
+    log(f"map squares: {TILE['used']} downloaded this run, {len(TILE['empty'])} known empty")
     if BACKUP:
         try: store.backup()
         except Exception as e: gh_error(f"Backing up the collection failed: {e}")
