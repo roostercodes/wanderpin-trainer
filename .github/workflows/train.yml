@@ -20,7 +20,7 @@ concurrency:
 jobs:
   train:
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 330      # normal runs take about an hour; the weekly fine-tuning a few hours
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

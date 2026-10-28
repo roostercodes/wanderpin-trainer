@@ -1,2 +1,4 @@
 __pycache__/
 *.npz
+!models/*.npz
+cache/
