@@ -1,37 +1,37 @@
 {
- "at": "2026-10-29T04:15:17.221117+00:00",
- "minutes": 54.0,
- "visits": 6575,
- "photos": 8856,
+ "at": "2026-10-29T05:14:07.844975+00:00",
+ "minutes": 58.1,
+ "visits": 7438,
+ "photos": 10191,
  "plates": 0,
  "heads": {
   "scene": "88 groups, 38% right, 58% top-3 (line)",
-  "pole": "88 groups, 29% right, 46% top-3 (line)",
-  "sign": "88 groups, 14% right, 26% top-3 (network)",
-  "guardrail": "86 groups, 28% right, 44% top-3 (network)",
-  "lamp": "88 groups, 12% right, 22% top-3 (network)",
-  "bollard": "79 groups, 26% right, 40% top-3 (network)",
+  "pole": "88 groups, 30% right, 48% top-3 (line)",
+  "sign": "88 groups, 15% right, 28% top-3 (network)",
+  "guardrail": "86 groups, 27% right, 43% top-3 (network)",
+  "lamp": "88 groups, 14% right, 24% top-3 (network)",
+  "bollard": "81 groups, 30% right, 44% top-3 (network)",
   "plate": "89 groups, 72% right, 81% top-3 (network)",
   "area": "525 groups, 18% right, 31% top-3 (network)",
-  "det_pole": "2 groups, 97% right, 100% top-3 (line)",
+  "det_pole": "2 groups, 96% right, 100% top-3 (line)",
   "det_sign": "2 groups, 99% right, 100% top-3 (line)",
   "det_guardrail": "2 groups, 94% right, 100% top-3 (line)",
   "det_lamp": "2 groups, 100% right, 100% top-3 (line)",
-  "det_bollard": "2 groups, 97% right, 100% top-3 (line)"
+  "det_bollard": "2 groups, 99% right, 100% top-3 (line)"
  },
  "examples": {
-  "bollard": 2511,
-  "det_bollard": 6511,
+  "bollard": 2821,
+  "det_bollard": 6821,
   "det_guardrail": 8000,
   "det_lamp": 8000,
   "det_pole": 8000,
   "det_sign": 8000,
-  "guardrail": 19554,
-  "lamp": 9773,
+  "guardrail": 22024,
+  "lamp": 10997,
   "plate": 14096,
-  "pole": 41341,
-  "scene": 69196,
-  "sign": 21975
+  "pole": 46043,
+  "scene": 69656,
+  "sign": 24463
  },
- "with_pictures": 164121
+ "with_pictures": 175586
 }
