@@ -881,8 +881,13 @@ def main():
     st = state_get(); ft_res = None
     due = (time.time() - st.get("ft_at", 0)) > FT_EVERY_DAYS * 86400
     have = store.with_images(STYLE_CATS)
-    if FORCE_FT or (due and have >= FT_MIN):
-        state_set(ft_at=time.time())
+    # a fine-tune can also be asked for by committing a new line to finetune_request.txt
+    req = ""
+    try: req = open(os.path.join(HERE, "finetune_request.txt")).read().strip()
+    except OSError: pass
+    asked = bool(req) and req != st.get("ft_req")
+    if FORCE_FT or asked or (due and have >= FT_MIN):
+        state_set(ft_at=time.time(), ft_req=req)
         try:
             ft_res = finetune(store, model, places); log("fine-tuning:", ft_res)
         except Exception as e:
