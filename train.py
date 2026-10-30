@@ -74,7 +74,8 @@ NAMES = {"US": "the United States", "CA": "Canada", "MX": "Mexico", "GT": "Guate
          "NG": "Nigeria", "TN": "Tunisia", "AU": "Australia", "NZ": "New Zealand"}
 STYLE_CATS = ["scene", "pole", "sign", "guardrail", "lamp", "bollard", "plate"]
 DET_CATS = ["det_pole", "det_sign", "det_guardrail", "det_lamp", "det_bollard"]
-CROP_PX = {"scene": 224, "plate": 192}                       # size of the kept copy of each cut-out (others: 160)
+CROP_PX = {"scene": 224, "plate": 192}
+MIN_OBJ_PX = int(os.environ.get("MIN_OBJ_PX") or 28)        # objects smaller than this (in the 1024 px photo) are skipped                       # size of the kept copy of each cut-out (others: 160)
 MEAN = np.array([0.48145466, 0.4578275, 0.40821073], np.float32)
 STD = np.array([0.26862954, 0.26130258, 0.27577711], np.float32)
 
@@ -433,7 +434,7 @@ def mly_photo(c):
             x, y, w, h = bb[0] * W, bb[1] * H, (bb[2] - bb[0]) * W, (bb[3] - bb[1]) * H
             if v.startswith("object") or v.startswith("construction--barrier"): objs.append((x, y, w, h))
             cat = det_cat(v)
-            if not cat or w < 14 or h < 14: continue
+            if not cat or max(w, h) < MIN_OBJ_PX or min(w, h) < 10: continue   # too small to learn anything from
             per[cat] = per.get(cat, 0) + 1
             if per[cat] > 3: continue
             boxes.append((cat, jitter((x, y, w, h), W, H, 1.25, 1.25)))
@@ -518,11 +519,24 @@ class Store:
         if fresh: self.restore()
         for cat, y, n in self.db.execute("select cat, y, count(*) from ex group by cat, y"): self.cnt[(cat, y)] = n
         self.seen = set(s for (s,) in self.db.execute("select distinct src from ex where src is not null"))
+        if not state_get().get("cleaned_small"): self.drop_small()
         log("collection so far:", self.sizes())
     def sizes(self):
         out = {}
         for (c, _), n in self.cnt.items(): out[c] = out.get(c, 0) + n
         return out
+    def drop_small(self):
+        """Once: remove object cut-outs that were too small to learn from (the kept copy is at most 160 px, so its size is the real size)."""
+        bad = []
+        for i, img in self.db.execute("select id, img from ex where img is not null and cat in ('pole','sign','guardrail','lamp','bollard')"):
+            try:
+                w, h = Image.open(io.BytesIO(img)).size
+                if max(w, h) < MIN_OBJ_PX * 1.25: bad.append((i,))
+            except Exception: bad.append((i,))
+        self.db.executemany("delete from ex where id = ?", bad); self.db.commit()
+        self.cnt = {}
+        for cat, y, n in self.db.execute("select cat, y, count(*) from ex group by cat, y"): self.cnt[(cat, y)] = n
+        state_set(cleaned_small=True); log(f"removed {len(bad)} cut-outs that were too small")
     def count(self, cat, label): return self.cnt.get((cat, label), 0)
     def cap(self, cat): return MAX_PER_CHECK if cat.startswith("det_") else MAX_PLATE if cat == "plate" else MAX_PER_CLASS
     def add(self, cat, label, emb, group="", src=None, ll=None, img=None, emb2=None, ver=0):
@@ -592,6 +606,10 @@ def split(y, groups, test=0.2):
     idx = np.arange(len(y)); classes = np.unique(y)
     # photos from the same spot look alike, so the test photos come from spots the model never trained on
     if groups is not None and len(set(groups)) >= 10:
+        # every kind uses the same unseen spots, so a spot's views and finds can be scored together
+        import zlib
+        te_mask = np.array([zlib.crc32(str(g).encode()) % 5 == 0 for g in groups])
+        if 0 < te_mask.sum() < len(idx): return idx[~te_mask], idx[te_mask]
         return next(GroupShuffleSplit(n_splits=1, test_size=test, random_state=0).split(idx, y, groups))
     strat = y if min(np.unique(y, return_counts=True)[1]) >= 2 and math.ceil(test * len(y)) >= len(classes) else None
     return train_test_split(idx, test_size=test, random_state=0, stratify=strat)
@@ -625,15 +643,15 @@ def train_head(E, y, groups=None, try_mlp=True, Cs=(0.5, 2.0, 8.0)):
     best = None
     for C in Cs:
         clf = LogisticRegression(C=C, max_iter=2000, class_weight="balanced").fit(Xtr, ytr)
-        t1, t3 = scores(clf.predict_proba(Xte), clf.classes_, yte)
-        if best is None or t1 > best["acc"]: best = {"kind": "lr", "C": C, "acc": t1, "acc3": t3}
+        P = clf.predict_proba(Xte); t1, t3 = scores(P, clf.classes_, yte)
+        if best is None or t1 > best["acc"]: best = {"kind": "lr", "C": C, "acc": t1, "acc3": t3, "test": (P, [str(c) for c in clf.classes_])}
     lr_acc = best["acc"]
     if try_mlp and len(ytr) >= 300:
         for hidden in (128, 256):
             try:
                 clf = fit_mlp(Xtr * 10, ytr, hidden)   # ×10: inputs on a friendlier scale for the network
-                t1, t3 = scores(clf.predict_proba(Xte * 10), clf.classes_, yte)
-                if t1 > best["acc"] + 0.005: best = {"kind": "mlp", "hidden": hidden, "epochs": max(10, clf.n_iter_), "acc": t1, "acc3": t3}
+                P = clf.predict_proba(Xte * 10); t1, t3 = scores(P, clf.classes_, yte)
+                if t1 > best["acc"] + 0.005: best = {"kind": "mlp", "hidden": hidden, "epochs": max(10, clf.n_iter_), "acc": t1, "acc3": t3, "test": (P, [str(c) for c in clf.classes_])}
             except Exception as e: log("network failed:", e)
     if best["kind"] == "lr":
         clf = LogisticRegression(C=best["C"], max_iter=2000, class_weight="balanced").fit(X, y)
@@ -648,6 +666,7 @@ def train_head(E, y, groups=None, try_mlp=True, Cs=(0.5, 2.0, 8.0)):
         if len(cl) == 2 and W2.shape[0] == 1: W2 = np.vstack([np.zeros_like(W2[0]), W2[0]]); b2 = np.array([0.0, b2[0]])
         h = {"kind": "mlp", "classes": cl, "W1": W1, "b1": b1, "W": W2, "b": b2}
     h.update({"acc": round(best["acc"], 3), "acc3": round(best["acc3"], 3), "lr_acc": round(lr_acc, 3), "n": int(len(y))})
+    if groups is not None: h["_test"] = (best["test"][0], best["test"][1], groups[te], y[te])
     return h
 
 def q_rows(W):
@@ -701,7 +720,7 @@ def area_cells(ll, y, places):
 
 def learn(store, ver, places, deadline=None):
     """Retrain everything on the whole collection and publish it."""
-    summary, detail = [], {}
+    summary, detail, tests = [], {}, {}
     jobs = STYLE_CATS + ["area"] + DET_CATS
     for cat in jobs:
         if deadline and time.time() > deadline: summary.append((cat, "skipped (out of time)", 0)); continue
@@ -727,7 +746,38 @@ def learn(store, ver, places, deadline=None):
         summary.append((cat, f"{len(h['classes'])} groups, {round(h['acc'] * 100)}% right, {round(h['acc3'] * 100)}% top-3 ({kind}{', tuned layers' if use else ''})", h["n"]))
         detail[cat] = {"acc": h["acc"], "acc3": h["acc3"], "n": h["n"], "classes": len(h["classes"]), "kind": h["kind"], "lr_acc": h["lr_acc"], "tuned": bool(use)}
         log("saved", cat, summary[-1][1])
+        if cat in ("scene", "pole", "sign", "guardrail", "lamp", "bollard") and "_test" in h: tests[cat] = h["_test"]
+    try:
+        sp = spot_score(tests)
+        if sp: detail["spot"] = sp; summary.append(("whole spot", f"{round(sp['scene'] * 100)}% from the views, {round(sp['all'] * 100)}% with everything ({sp['n']} unseen spots)", sp["n"])); log("whole spot:", sp)
+    except Exception as e: log("whole-spot score failed:", e)
     return summary, detail
+
+def spot_score(tests, views=4, finds=6, seed=0):
+    """What a player gets: up to 4 views of an unseen spot averaged, then (as in the game's
+    "Everything together" card) the finds there too. Right if the top country is the real one."""
+    if "scene" not in tests: return None
+    rng = np.random.RandomState(seed)
+    P, cl, G, Y = tests["scene"]; cl = list(cl)
+    by = {}
+    for i, g in enumerate(G): by.setdefault(g, []).append(i)
+    idx = {c: {} for c in tests}
+    for c, (Pc, clc, Gc, Yc) in tests.items():
+        for i, g in enumerate(Gc): idx[c].setdefault(g, []).append(i)
+    right_s = right_a = n = 0
+    for g, rows in by.items():
+        if len(rows) > views: rows = list(rng.choice(rows, views, replace=False))
+        truth = Y[rows[0]]
+        lp = np.log(P[rows].mean(0) + 1e-4)
+        right_s += cl[int(np.argmax(lp))] == truth
+        tot = lp.copy()
+        for c, (Pc, clc, Gc, Yc) in tests.items():
+            if c == "scene" or g not in idx[c]: continue
+            r = idx[c][g]; r = list(rng.choice(r, finds, replace=False)) if len(r) > finds else r
+            pc = Pc[r].mean(0); m = {k: v for k, v in zip(clc, pc)}
+            tot += 0.5 * np.log(np.array([m.get(k, 0.0) for k in cl]) + 1e-3)   # finds count half: they're weaker and overlap
+        right_a += cl[int(np.argmax(tot))] == truth; n += 1
+    return {"scene": round(right_s / max(1, n), 3), "all": round(right_a / max(1, n), 3), "n": n} if n >= 30 else None
 
 
 # ---------------- fine-tuning the last layers of the image model (weekly) ----------------
@@ -876,6 +926,21 @@ def main():
     except Exception: pass
     run_started = datetime.now(timezone.utc).isoformat()
     report("running", "starting", at=run_started, photos=0, plates=0, visits=0, examples=store.sizes())
+
+    # asked for (bench_request.txt): test bigger image models on our collection instead of collecting
+    breq = ""
+    try: breq = open(os.path.join(HERE, "bench_request.txt")).read().strip()
+    except OSError: pass
+    if breq and breq != state_get().get("bench_req"):
+        state_set(bench_req=breq)
+        sys.path.insert(0, HERE); import bench
+        try: bres = bench.run(store, log, lambda st, stage: report(st, stage, examples=store.sizes()))
+        except Exception as e: gh_error(f"Model test failed: {e}"); traceback.print_exc(); bres = {"error": str(e)[:300]}
+        finish(store, run_started, 0, {}, [], {"bench": bres}, None)
+        try:
+            sp = os.path.join(HERE, "stats.json"); d = json.load(open(sp)); d["bench"] = bres; json.dump(d, open(sp, "w"), indent=1)
+        except Exception as e: log("couldn't add the test to stats.json:", e)
+        return
 
     # once a week: fine-tune the image model's last layers instead of collecting
     st = state_get(); ft_res = None
