@@ -49,7 +49,7 @@ FT_PUB_N = int(os.environ.get("FT_PUB_N") or 20000)            # cut-outs used f
 FT_GAIN = float(os.environ.get("FT_GAIN") or 0.005)            # must beat the players' current layers by this much to be published
 FORCE_FT = os.environ.get("FORCE_FT", "") in ("1", "true")
 USE_BIG = os.environ.get("USE_BIG", "1") not in ("0", "false")    # the bigger model for the country/area guesses
-BIG_CATCHUP = float(os.environ.get("BIG_CATCHUP") or 0.5)      # until it has read this share of the cut-outs, a run only does that…
+BIG_CATCHUP = 0.95                                            # until it has read this share of the overall-look cut-outs, a run only does that…
 BIG_CATCHUP_MIN = float(os.environ.get("BIG_CATCHUP_MIN") or 200)  # …for this long
 BIG_FILL_MIN = float(os.environ.get("BIG_FILL_MIN") or 15)     # otherwise: this long after collecting, for new cut-outs
 SEED = os.environ.get("SEED")
@@ -570,10 +570,11 @@ class Store:
         if not rows: return None
         E = np.frombuffer(b"".join(r[0] for r in rows), np.int8).reshape(len(rows), -1).astype(np.float32)
         return E, np.array([r[1] for r in rows]), np.array([r[2] or f"r{i}" for i, r in enumerate(rows)]), np.array([[r[3] or 0, r[4] or 0] for r in rows], np.float32)
-    def big_progress(self):
+    def big_progress(self, only=None):
         """How many of the cut-outs with pictures the bigger model has read: (done, all)."""
-        q = f"select count(img), count(case when img is not null then eb end) from ex where cat in ({','.join('?' * len(STYLE_CATS))})"
-        a, d = self.db.execute(q, STYLE_CATS).fetchone(); return int(d or 0), int(a or 0)
+        cats = [only] if only else STYLE_CATS
+        q = f"select count(img), count(case when img is not null then eb end) from ex where cat in ({','.join('?' * len(cats))})"
+        a, d = self.db.execute(q, cats).fetchone(); return int(d or 0), int(a or 0)
     def with_images(self, cats):
         return self.db.execute(f"select count(*) from ex where img is not null and cat in ({','.join('?' * len(cats))})", cats).fetchone()[0]
     # ---- backup of the numbers (not the pictures) to Supabase, in parts under the 50 MB file limit ----
@@ -738,6 +739,18 @@ def area_cells(ll, y, places):
 def OPT_NAME(opt): return "bigger model" if opt == big.TAG else "tuned layers" if opt else "plain"
 def OPT_SRC(opt): return big.TAG if opt == big.TAG else f"b{opt}" if opt else None
 
+def assign_cells(ll, y, cells):
+    """Give each photo the nearest of its country's areas (so every option is scored on the same areas)."""
+    by = {}
+    for k, (la, ln, _) in cells.items(): by.setdefault(k.split(".")[0], []).append((k, la, ln))
+    out = []
+    for (la, ln), cc in zip(ll, y):
+        cs = by.get(cc)
+        if not cs: out.append(f"{cc}.0"); continue
+        c = math.cos(math.radians(la))
+        out.append(min(cs, key=lambda t: (t[1] - la) ** 2 + ((t[2] - ln) * c) ** 2)[0])
+    return np.array(out)
+
 def learn(store, ver, places, deadline=None):
     """Retrain everything on the whole collection and publish it."""
     summary, detail, tests = [], {}, {}
@@ -752,13 +765,18 @@ def learn(store, ver, places, deadline=None):
             nb = store.db.execute("select count(*) from ex where cat=? and eb is not null" + (" and lat is not null" if cat == "area" else ""), (src_cat,)).fetchone()[0]
             if nb >= (600 if cat == "area" else 200): options.append(big.TAG)
         tried = []   # (head, option, extra, labels)
+        cells = None
+        if cat == "area":   # the areas come from all the photos, then every option is trained and scored on those same areas
+            A0 = store.arrays(src_cat, 0, need_ll=True)
+            if A0 is not None and len(A0[1]) >= 300: _, cells = area_cells(A0[3], A0[1], places)
+            if not cells: summary.append((cat, "not enough examples yet", 0)); continue
         for opt in options:
             A = store.arrays(src_cat, opt, need_ll=cat == "area")
             if A is None or len(A[1]) < 12: continue
             E, yy, g, ll = A; ex = None
             if cat == "area":
                 if len(yy) < 300: continue
-                yy, cells = area_cells(ll, yy, places); ex = {"cells": cells}
+                yy = assign_cells(ll, yy, cells); ex = {"cells": cells}
             try: hh = train_head(E, yy, g, try_mlp=not cat.startswith("det_"), Cs=(2.0,) if cat == "area" else (0.5, 2.0, 8.0))
             except Exception as e: log(cat, "failed:", e); traceback.print_exc(limit=2); continue
             if hh: log(f"  {cat} {OPT_NAME(opt)}: {round(hh['acc'] * 100, 1)}%"); tried.append((hh, opt, ex, yy))
@@ -1055,8 +1073,8 @@ def big_fill(store, bm, minutes, label="bigger model"):
     for (cat, y), (n_img, n_eb) in have.items():
         if n_img <= n_eb: continue
         ids = [r[0] for r in store.db.execute("select id from ex where cat=? and y=? and img is not null and eb is null order by random() limit ?", (cat, y, n_img - n_eb))]
-        todo += [(n_eb + k, random.random(), i) for k, i in enumerate(ids)]   # the least-read groups first
-    todo.sort(); ids = [t[2] for t in todo]
+        todo += [(cat != "scene", n_eb + k, random.random(), i) for k, i in enumerate(ids)]   # the overall look first (it's what the bigger model is best at), then the least-read groups
+    todo.sort(); ids = [t[-1] for t in todo]
     done, last = 0, time.time()
     log(f"{label}: {len(ids)} cut-outs to read, {minutes} min")
     for i in range(0, len(ids), 64):
@@ -1153,7 +1171,7 @@ def main():
 
     # the bigger model is new: spend whole runs catching up on the collection until it has read enough
     if bm is not None:
-        d, a = store.big_progress()
+        d, a = store.big_progress("scene")
         if a and d < BIG_CATCHUP * a:
             big_fill(store, bm, BIG_CATCHUP_MIN, "bigger model (catching up)")
             sess = run_session(store, model)
@@ -1271,7 +1289,8 @@ def finish(store, run_started, visits, stats, summary, detail, ft_res):
     detail = dict(detail, _pictures=run["with_pictures"])   # shown on the progress page (fine-tuning starts at FT_MIN)
     try:
         d, a = store.big_progress()
-        if d: run["big_read"] = [d, a]; detail = dict(detail, _big={"read": d, "of": a, "name": "CLIP ViT-B/16"})
+        sd, sa = store.big_progress("scene")
+        if d: run["big_read"] = [d, a]; detail = dict(detail, _big={"read": d, "of": a, "scene": [sd, sa], "name": "CLIP ViT-B/16"})
     except Exception: pass
     with open(os.path.join(HERE, "stats.json"), "w") as f: json.dump(run, f, indent=1)
     if os.environ.get("GITHUB_STEP_SUMMARY"):
