@@ -1,18 +1,18 @@
 {
- "at": "2026-10-30T02:16:07.162254+00:00",
- "minutes": 58.2,
- "visits": 11886,
- "photos": 14519,
+ "at": "2026-10-30T05:03:05.271670+00:00",
+ "minutes": 166.0,
+ "visits": 0,
+ "photos": 0,
  "plates": 0,
  "heads": {
-  "scene": "88 groups, 37% right, 57% top-3 (line)",
-  "pole": "88 groups, 31% right, 50% top-3 (line)",
-  "sign": "88 groups, 15% right, 28% top-3 (line)",
-  "guardrail": "87 groups, 32% right, 48% top-3 (line)",
-  "lamp": "88 groups, 18% right, 29% top-3 (network)",
+  "scene": "88 groups, 42% right, 62% top-3 (line, tuned layers)",
+  "pole": "88 groups, 39% right, 59% top-3 (line, tuned layers)",
+  "sign": "88 groups, 22% right, 37% top-3 (line, tuned layers)",
+  "guardrail": "87 groups, 42% right, 59% top-3 (line, tuned layers)",
+  "lamp": "88 groups, 33% right, 47% top-3 (line, tuned layers)",
   "bollard": "88 groups, 45% right, 59% top-3 (network)",
-  "plate": "89 groups, 72% right, 81% top-3 (network)",
-  "area": "527 groups, 19% right, 32% top-3 (network)",
+  "plate": "89 groups, 50% right, 66% top-3 (line, tuned layers)",
+  "area": "527 groups, 20% right, 34% top-3 (network, tuned layers)",
   "det_pole": "2 groups, 96% right, 100% top-3 (line)",
   "det_sign": "2 groups, 98% right, 100% top-3 (line)",
   "det_guardrail": "2 groups, 93% right, 100% top-3 (line)",
@@ -33,5 +33,13 @@
   "scene": 70400,
   "sign": 52687
  },
- "with_pictures": 266693
+ "with_pictures": 266693,
+ "finetune": {
+  "gain": 0.0353,
+  "epochs": 10,
+  "n": 46638,
+  "minutes": 102.1,
+  "published": true,
+  "ver": 1
+ }
 }
