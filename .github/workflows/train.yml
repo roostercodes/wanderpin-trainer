@@ -7,7 +7,7 @@ on:
     inputs:
       minutes:
         description: "Minutes to spend collecting photos"
-        default: "45"
+        default: "35"
       finetune:
         description: "Fine-tune the image model this run (1 = yes)"
         default: "0"
@@ -23,7 +23,7 @@ concurrency:
 jobs:
   train:
     runs-on: ubuntu-latest
-    timeout-minutes: 330      # normal runs take about an hour; the weekly fine-tuning a few hours
+    timeout-minutes: 330      # normal runs take about an hour; the daily publishing check up to 2 hours
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -43,7 +43,7 @@ jobs:
           MAPILLARY_TOKEN: ${{ secrets.MAPILLARY_TOKEN }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          MINUTES: ${{ github.event.inputs.minutes || '45' }}
+          MINUTES: ${{ github.event.inputs.minutes || '35' }}
           FORCE_FT: ${{ github.event.inputs.finetune || '0' }}
         run: |
           # back up the collection to Supabase once a day (07 UTC) and on manual runs
@@ -69,4 +69,4 @@ jobs:
         if: always() && github.event_name != 'workflow_dispatch' || always() && github.event.inputs.minutes != '0'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run train.yml --ref main -f minutes=45 || echo "couldn't start the next run; the hourly timer will"
+        run: gh workflow run train.yml --ref main -f minutes=35 || echo "couldn't start the next run; the hourly timer will"

@@ -41,11 +41,12 @@ TILE_BUDGET = int(os.environ.get("TILE_BUDGET") or 1800)      # map squares per 
 MAX_PER_CLASS = int(os.environ.get("MAX_PER_CLASS") or 800)   # cap per country per style (older ones get swapped out)
 MAX_PLATE = int(os.environ.get("MAX_PLATE") or 600)
 MAX_PER_CHECK = int(os.environ.get("MAX_PER_CHECK") or 4000)  # cap per yes/no answer for the "is it really there?" checks
-FT_EVERY_DAYS = float(os.environ.get("FT_EVERY_DAYS") or 7)   # fine-tune the image model this often…
-FT_MIN = int(os.environ.get("FT_MIN") or 30000)               # …once this many cut-outs with pictures are collected
-FT_MINUTES = float(os.environ.get("FT_MINUTES") or 90)        # time spent fine-tuning
-FT_MAX = int(os.environ.get("FT_MAX") or 60000)               # cut-outs used for fine-tuning
-FT_GAIN = float(os.environ.get("FT_GAIN") or 0.015)           # must beat the current layers by this much to be published
+FT_MIN = int(os.environ.get("FT_MIN") or 30000)               # fine-tuning starts once this many cut-outs with pictures are collected
+FT_SESSION_MIN = float(os.environ.get("FT_SESSION_MIN") or 10) # every run: this long fine-tuning, continuing from the last run…
+FT_SESSION_N = int(os.environ.get("FT_SESSION_N") or 12000)    # …on this many fresh cut-outs
+FT_PUBLISH_HOURS = float(os.environ.get("FT_PUBLISH_HOURS") or 24)  # this often: publish the layers for the players if they're better
+FT_PUB_N = int(os.environ.get("FT_PUB_N") or 20000)            # cut-outs used for that check
+FT_GAIN = float(os.environ.get("FT_GAIN") or 0.005)            # must beat the players' current layers by this much to be published
 FORCE_FT = os.environ.get("FORCE_FT", "") in ("1", "true")
 USE_BIG = os.environ.get("USE_BIG", "1") not in ("0", "false")    # the bigger model for the country/area guesses
 BIG_CATCHUP = float(os.environ.get("BIG_CATCHUP") or 0.5)      # until it has read this share of the cut-outs, a run only does that…
@@ -819,96 +820,174 @@ def ensure_torch():
     subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "onnx==1.17.0"])   # for making the int8 copy
     import torch; return torch
 
-def finetune(store, model, places):
-    """Teach the last 2 layers what tells countries apart, keeping them close to the original (so nothing else breaks).
-    Publishes only if a fresh classifier on the new embeddings beats one on the current embeddings, on unseen spots."""
-    torch = ensure_torch(); torch.set_num_threads(os.cpu_count() or 2)
-    sys.path.insert(0, HERE)
-    from branch import Branch
-    t_start = time.time()
-    # 1) a balanced sample of cut-outs with pictures
-    per = max(40, FT_MAX // max(1, len([1 for (c, _), n in store.cnt.items() if c in STYLE_CATS and n >= 8])))
+CKPT = os.path.join(CACHE, "ft_ckpt.pt")   # the trainer's own copy of the layers (full precision), carried from run to run
+
+def test_spot(g):
+    """The same unseen spots the heads are tested on: fine-tuning never trains on them."""
+    import zlib
+    return zlib.crc32(str(g).encode()) % 5 == 0
+
+def ft_sample(store, n, test):
+    """A balanced random sample of cut-outs with pictures, from the training spots or from the unseen ones."""
+    kinds = [(c, l) for (c, l), k in store.cnt.items() if c in STYLE_CATS and k >= 8]
+    per = max(10, int(n * (6.0 if test else 1.5)) // max(1, len(kinds)))
     rows = []
-    for cat in STYLE_CATS:
-        for (c, label), n in store.cnt.items():
-            if c != cat or n < 8: continue
-            rows += store.db.execute("select id, cat, y, g, img from ex where cat=? and y=? and img is not null order by random() limit ?", (cat, label, per)).fetchall()
-    rows = [r for r in rows if r[4]]
-    if len(rows) < max(500, FT_MIN // 20): return {"skipped": "not enough cut-outs with pictures", "n": len(rows)}
-    random.shuffle(rows); rows = rows[:FT_MAX]
-    cats = sorted(set(r[1] for r in rows)); labels = {c: sorted(set(r[2] for r in rows if r[1] == c)) for c in cats}
-    N = len(rows); log(f"fine-tuning on {N} cut-outs, {len(cats)} kinds")
+    for c, l in kinds:
+        rows += store.db.execute("select id, cat, y, g, img from ex where cat=? and y=? and img is not null order by random() limit ?", (c, l, per)).fetchall()
+    rows = [r for r in rows if r[4] and test_spot(r[3] or f"r{r[0]}") == test]
+    random.shuffle(rows); return rows[:n]
+
+def ft_tokens(model, rows):
+    """The frozen part of the model (blocks 1-10) once per cut-out, plus the original embedding."""
+    N = len(rows); tok = np.zeros((N, 50, 512), np.float16); base = np.zeros((N, 512), np.float32)
+    keep, model.branch = model.branch, None
+    try:
+        for i in range(0, N, 256):
+            arr = [prep(Image.open(io.BytesIO(r[4])).convert("RGB")) for r in rows[i:i + 256]]
+            e, _, _, t = model.run(arr, want_tok=True); tok[i:i + len(arr)] = t; base[i:i + len(arr)] = e
+    finally: model.branch = keep
+    return tok, base
+
+def onnx_to_branch(torch, Branch, path):
+    """Full-precision weights back from an exported layers file (names kept, except matrix weights, which ONNX
+    stores transposed under generic names, in order). Checked by running both."""
+    import onnx
+    from onnx import numpy_helper
+    import onnxruntime as ort
+    m = onnx.load(path); init = {i.name: numpy_helper.to_array(i) for i in m.graph.initializer}
+    br = Branch(); sd = br.state_dict(); out = {}
+    generic = [k for k in init if k not in sd]
+    order = [k for b in range(len(br.blocks)) for k in (f"blocks.{b}.attn.in_proj_weight", f"blocks.{b}.attn.out_proj.weight", f"blocks.{b}.mlp.c_fc.weight", f"blocks.{b}.mlp.c_proj.weight")]
+    for k in sd:
+        if k in init: out[k] = torch.from_numpy(init[k].copy())
+    if len(generic) != len(order): raise RuntimeError("unexpected layout")
+    for k, g in zip(order, generic): out[k] = torch.from_numpy(init[g].T.copy())
+    br.load_state_dict(out, strict=True); br.eval()
+    x = np.random.RandomState(0).randn(4, 50, 512).astype(np.float32)
+    ref = ort.InferenceSession(path, providers=["CPUExecutionProvider"]).run(None, {"tok": x})[0]
+    with torch.no_grad(): got = br(torch.from_numpy(x)).numpy()
+    if float(np.abs(ref - got).max()) > 1e-3: raise RuntimeError("weights didn't match")
+    return br
+
+def ft_state(torch, Branch, model, labels):
+    """The layers to keep training: the trainer's checkpoint, else the layers the players have, else the original."""
+    ck = None
+    if os.path.exists(CKPT):
+        try: ck = torch.load(CKPT, weights_only=False)
+        except Exception as e: log("checkpoint unreadable:", e)
+    if ck is None:
+        try:
+            blob = storage_get("ft/ckpt.pt")
+            if blob: open(CKPT, "wb").write(blob); ck = torch.load(CKPT, weights_only=False); log("fine-tuning: continued from the backed-up checkpoint")
+        except Exception as e: log("no backed-up checkpoint:", e)
+    br = Branch()
+    if ck: br.load_state_dict(ck["branch"])
+    else:
+        fp = os.path.join(CACHE, f"branch-v{model.ver}.onnx.fp32")
+        try:
+            if not model.ver or not os.path.exists(fp): raise FileNotFoundError(fp)
+            br = onnx_to_branch(torch, Branch, fp); log(f"fine-tuning: starting from the players' layers v{model.ver}")
+        except Exception as e:
+            log("fine-tuning: starting from the original layers", f"({e})"); br.load_np(dict(np.load(os.path.join(HERE, "models", "branch_init.npz"))))
+        ck = {"steps": 0, "seen": 0, "sessions": 0}
+    heads = torch.nn.ModuleDict()
+    for c, ls in labels.items():
+        lin = torch.nn.Linear(512, len(ls)); old = (ck.get("heads") or {}).get(c)
+        if old:   # keep what was learned for countries already known
+            with torch.no_grad():
+                for j, l in enumerate(ls):
+                    if l in old["labels"]: k = old["labels"].index(l); lin.weight[j] = old["W"][k]; lin.bias[j] = old["b"][k]
+        heads[c] = lin
+    opt_b = torch.optim.AdamW(br.parameters(), lr=3e-5, weight_decay=0.05)
+    if ck.get("opt_b"):
+        try: opt_b.load_state_dict(ck["opt_b"])
+        except Exception: pass
+    opt_h = torch.optim.AdamW(heads.parameters(), lr=2e-3, weight_decay=1e-4)
+    return br, heads, opt_b, opt_h, ck
+
+def ft_session(store, model, minutes):
+    """Every run: a short round of fine-tuning on fresh cut-outs, continuing from the last run."""
+    if store.with_images(STYLE_CATS) < FT_MIN: return {"skipped": "not enough cut-outs with pictures yet"}
+    torch = ensure_torch(); torch.set_num_threads(os.cpu_count() or 2)
+    from branch import Branch
+    t0 = time.time()
+    rows = ft_sample(store, FT_SESSION_N, test=False)
+    if len(rows) < 500: return {"skipped": "not enough cut-outs with pictures", "n": len(rows)}
     report("running", "fine-tuning: reading cut-outs", examples=store.sizes())
-    # 2) the frozen part of the model, once for every cut-out
-    tok = np.zeros((N, 50, 512), np.float16); base = np.zeros((N, 512), np.float32)
-    keep_branch, model.branch = model.branch, None
-    for i in range(0, N, 256):
-        arr = [prep(Image.open(io.BytesIO(r[4])).convert("RGB")) for r in rows[i:i + 256]]
-        e, _, _, t = model.run(arr, want_tok=True); tok[i:i + len(arr)] = t; base[i:i + len(arr)] = e
-        if i % 5120 == 0: log(f"  frozen part: {i}/{N}")
-    model.branch = keep_branch
-    groups = np.array([r[3] or f"r{r[0]}" for r in rows]); y_all = np.array([r[2] for r in rows]); c_all = np.array([r[1] for r in rows])
-    from sklearn.model_selection import GroupShuffleSplit
-    tr, va = next(GroupShuffleSplit(n_splits=1, test_size=0.15, random_state=1).split(np.arange(N), y_all, groups))
-    # 3) train
-    br = Branch(); br.load_np(dict(np.load(os.path.join(HERE, "models", "branch_init.npz"))))
-    heads = torch.nn.ModuleDict({c: torch.nn.Linear(512, len(labels[c])) for c in cats})
-    yi = np.array([labels[c_all[i]].index(y_all[i]) for i in range(N)])
-    opt = torch.optim.AdamW([{"params": br.parameters(), "lr": 3e-5, "weight_decay": 0.05}, {"params": heads.parameters(), "lr": 2e-3, "weight_decay": 1e-4}])
-    T = torch.from_numpy(tok); B = torch.from_numpy(base); Y = torch.from_numpy(yi)
-    budget = time.time() + FT_MINUTES * 60; step = 0; best = (-1, None); epoch = 0   # the clock starts after the preparation
-    def evaluate():
-        br.eval(); out = np.zeros((len(va), 512), np.float32)
-        with torch.no_grad():
-            for i in range(0, len(va), 512): out[i:i + 512] = br(T[va[i:i + 512]].float()).numpy()
-        br.train(); return out
-    while epoch == 0 or (time.time() < budget and epoch < 12):
-        epoch += 1; perm = np.random.permutation(tr); br.train()
+    tok, base = ft_tokens(model, rows)
+    cats = sorted(set(r[1] for r in rows)); labels = {}
+    for (c, l), k in store.cnt.items():
+        if c in cats and k >= 8: labels.setdefault(c, []).append(l)
+    labels = {c: sorted(v) for c, v in labels.items()}
+    br, heads, opt_b, opt_h, ck = ft_state(torch, Branch, model, labels)
+    keep = [i for i, r in enumerate(rows) if r[2] in labels.get(r[1], [])]
+    c_all = np.array([rows[i][1] for i in keep]); yi = np.array([labels[rows[i][1]].index(rows[i][2]) for i in keep])
+    T = torch.from_numpy(tok[keep]); B = torch.from_numpy(base[keep]); Y = torch.from_numpy(yi)
+    report("running", "fine-tuning", examples=store.sizes())
+    budget = time.time() + minutes * 60; steps = 0; right = seen = 0; epoch = 0; br.train()
+    while time.time() < budget and epoch < 2:
+        epoch += 1; perm = np.random.permutation(len(keep))
         for i in range(0, len(perm), 96):
-            b = perm[i:i + 96]; x = T[b].float(); e = br(x)
+            b = perm[i:i + 96]; e = br(T[b].float())
             loss = 0.5 * (1 - (e * B[b]).sum(1)).mean() * 10        # stay close to the original embedding
             for c in set(c_all[b]):
-                m = np.where(c_all[b] == c)[0]
-                loss = loss + torch.nn.functional.cross_entropy(heads[c](e[m] * 20), Y[b][m]) * len(m) / len(b)
-            opt.zero_grad(); loss.backward(); opt.step(); step += 1
+                m = np.where(c_all[b] == c)[0]; z = heads[c](e[m] * 20)
+                loss = loss + torch.nn.functional.cross_entropy(z, Y[b][m]) * len(m) / len(b)
+                if epoch == 1: right += int((z.argmax(1) == Y[b][m]).sum()); seen += len(m)   # first look at these cut-outs
+            opt_b.zero_grad(); opt_h.zero_grad(); loss.backward(); opt_b.step(); opt_h.step(); steps += 1
             if time.time() > budget: break
-        E2 = evaluate(); right = 0
-        with torch.no_grad():
-            for c in cats:
-                m = np.where(c_all[va] == c)[0]
-                if len(m): right += int((heads[c](torch.from_numpy(E2[m] * 20)).argmax(1).numpy() == yi[va[m]]).sum())
-        acc = right / max(1, len(va))
-        log(f"  epoch {epoch}: {round(acc * 100, 1)}% right on unseen spots")
-        report("running", f"fine-tuning: round {epoch}", examples=store.sizes())
-        if acc > best[0]: best = (acc, {k: v.detach().clone() for k, v in br.state_dict().items()})
-    br.load_state_dict(best[1]); br.eval()
-    # 4) fair comparison: fresh straight-line classifiers on current vs new embeddings, per kind
+    br.eval()
+    ck.update({"branch": br.state_dict(), "opt_b": opt_b.state_dict(), "steps": ck.get("steps", 0) + steps, "seen": ck.get("seen", 0) + steps * 96,
+               "sessions": ck.get("sessions", 0) + 1, "at": time.time(),
+               "heads": {c: {"labels": labels[c], "W": heads[c].weight.detach().clone(), "b": heads[c].bias.detach().clone()} for c in heads}})
+    torch.save(ck, CKPT + ".tmp"); os.replace(CKPT + ".tmp", CKPT)
+    if time.time() - state_get().get("ckpt_up", 0) > 6 * 3600:   # a copy in Supabase, in case GitHub's cache is cleared
+        try: torch.save({k: v for k, v in ck.items() if k != "opt_b"}, CKPT + ".up"); storage_put("ft/ckpt.pt", open(CKPT + ".up", "rb").read()); state_set(ckpt_up=time.time())
+        except Exception as e: log("checkpoint backup failed:", e)
+    res = {"n": len(keep), "steps": steps, "epochs": epoch, "acc_first_look": round(right / max(1, seen), 3), "total_steps": ck["steps"],
+           "sessions": ck["sessions"], "minutes": round((time.time() - t0) / 60, 1)}
+    log("fine-tuning session:", res); return res
+
+def storage_delete(paths):
+    try: http.delete(f"{SB_URL}/storage/v1/object/wp-models", headers=sb_headers({"content-type": "application/json"}), data=json.dumps({"prefixes": paths}), timeout=60)
+    except Exception as e: log("couldn't delete old files:", e)
+
+def ft_publish(store, model):
+    """Once a day: if the trainer's layers beat the players' layers on unseen spots, publish them."""
+    torch = ensure_torch(); torch.set_num_threads(os.cpu_count() or 2)
+    from branch import Branch
+    if not os.path.exists(CKPT): return {"skipped": "nothing fine-tuned yet"}
+    t0 = time.time(); ck = torch.load(CKPT, weights_only=False)
+    br = Branch(); br.load_state_dict(ck["branch"]); br.eval()
+    report("running", "fine-tuning: checking against the players' layers", examples=store.sizes())
+    tr, te = ft_sample(store, FT_PUB_N, test=False), ft_sample(store, FT_PUB_N // 3, test=True)
+    rows = tr + te; N = len(rows)
+    if len(te) < 300: return {"skipped": "not enough unseen cut-outs", "n": len(te)}
+    tok, base = ft_tokens(model, rows)
     with torch.no_grad():
-        E2 = np.zeros((N, 512), np.float32)
-        for i in range(0, N, 512): E2[i:i + 512] = br(T[i:i + 512].float()).numpy()
-    cur = base
-    if keep_branch is not None:   # the layers the players have now
-        cur = np.concatenate([keep_branch.run(None, {"tok": tok[i:i + 256].astype(np.float32)})[0] for i in range(0, N, 256)])
+        E2 = np.concatenate([br(torch.from_numpy(tok[i:i + 512].astype(np.float32))).numpy() for i in range(0, N, 512)])
+    cur = base if model.branch is None else np.concatenate([model.branch.run(None, {"tok": tok[i:i + 256].astype(np.float32)})[0] for i in range(0, N, 256)])
+    is_te = np.array([False] * len(tr) + [True] * len(te)); c_all = np.array([r[1] for r in rows]); y_all = np.array([r[2] for r in rows])
     from sklearn.linear_model import LogisticRegression
-    gains, wsum = [], 0
-    for c in cats:
-        m_tr = tr[c_all[tr] == c]; m_va = va[c_all[va] == c]
-        if len(set(y_all[m_tr])) < 2 or len(m_va) < 20: continue
+    gains, wsum, per = [], 0, {}
+    for c in sorted(set(c_all)):
+        m_tr = np.where((c_all == c) & ~is_te)[0]; m_te = np.where((c_all == c) & is_te)[0]
+        if len(set(y_all[m_tr])) < 2 or len(m_te) < 20: continue
         acc = []
         for E in (cur, E2):
             clf = LogisticRegression(C=2.0, max_iter=1500, class_weight="balanced").fit(E[m_tr], y_all[m_tr])
-            acc.append(float(np.mean(clf.predict(E[m_va]) == y_all[m_va])))
-        w = math.sqrt(len(m_va)); gains.append((acc[1] - acc[0]) * w); wsum += w
-        log(f"  {c}: {round(acc[0] * 100, 1)}% → {round(acc[1] * 100, 1)}%")
+            acc.append(float(np.mean(clf.predict(E[m_te]) == y_all[m_te])))
+        w = math.sqrt(len(m_te)); gains.append((acc[1] - acc[0]) * w); wsum += w; per[str(c)] = [round(acc[0], 3), round(acc[1], 3)]
+        log(f"  {c}: players' layers {round(acc[0] * 100, 1)}% → trainer's {round(acc[1] * 100, 1)}%")
     gain = sum(gains) / max(1e-9, wsum)
-    res = {"gain": round(gain, 4), "epochs": epoch, "n": N, "minutes": round((time.time() - t_start) / 60, 1)}
+    res = {"gain": round(gain, 4), "per": per, "n": N, "sessions": ck.get("sessions"), "total_steps": ck.get("steps")}
     if gain < FT_GAIN:
-        log(f"fine-tuned layers not better enough ({round(gain * 100, 1)} points); keeping the current ones"); res["published"] = False; return res
-    # 5) publish: small int8 ONNX file, then re-embed every cut-out that has a picture
+        log(f"not better enough ({round(gain * 100, 1)} points); the players keep their layers"); res["published"] = False
+        res["minutes"] = round((time.time() - t0) / 60, 1); return res
     ver = (model.ver or 0) + 1
     path = os.path.join(CACHE, f"branch-v{ver}.onnx"); fp = path + ".fp32"
     import inspect
-    kw = {"dynamo": False} if "dynamo" in inspect.signature(torch.onnx.export).parameters else {}   # the classic exporter on every torch version
+    kw = {"dynamo": False} if "dynamo" in inspect.signature(torch.onnx.export).parameters else {}
     torch.onnx.export(br, torch.from_numpy(tok[:2].astype(np.float32)), fp, input_names=["tok"], output_names=["emb2"],
                       dynamic_axes={"tok": {0: "n"}, "emb2": {0: "n"}}, opset_version=17, **kw)
     from onnxruntime.quantization import quantize_dynamic, QuantType
@@ -918,6 +997,9 @@ def finetune(store, model, places):
     chk = model.branch.run(None, {"tok": tok[:64].astype(np.float32)})[0]
     log("int8 copy agrees with the trained layers:", round(float(np.mean(np.sum(chk * E2[:64], 1))), 4), "(cosine)")
     storage_put(f"branch-v{ver}.onnx", blob)
+    if ver > 2: storage_delete([f"branch-v{ver - 2}.onnx"])   # keep the last two
+    for old in os.listdir(CACHE):
+        if old.startswith("branch-v") and not old.startswith((f"branch-v{ver}.", f"branch-v{ver - 1}.")): os.remove(os.path.join(CACHE, old))
     report("running", "fine-tuning: updating the collection", examples=store.sizes())
     ids = [r[0] for r in store.db.execute("select id from ex where img is not null and cat in (%s)" % ",".join("?" * len(STYLE_CATS)), STYLE_CATS)]
     done = 0
@@ -929,7 +1011,7 @@ def finetune(store, model, places):
         done += len(chunk)
         if done % 10240 < 256: log(f"  re-embedded {done}/{len(ids)}"); store.commit()
     store.commit()
-    res.update({"published": True, "ver": ver})
+    res.update({"published": True, "ver": ver, "minutes": round((time.time() - t0) / 60, 1)})
     return res
 
 
@@ -997,6 +1079,11 @@ def big_fill(store, bm, minutes, label="bigger model"):
     return done
 
 
+def run_session(store, model):
+    if FT_SESSION_MIN <= 0: return None
+    try: return ft_session(store, model, FT_SESSION_MIN)
+    except Exception as e: gh_error(f"Fine-tuning session failed: {e}"); traceback.print_exc(limit=3); return {"error": str(e)[:200]}
+
 # ---------------- main ----------------
 def main():
     if SEED: random.seed(int(SEED)); np.random.seed(int(SEED))
@@ -1040,30 +1127,28 @@ def main():
         except Exception as e: log("couldn't add the test to stats.json:", e)
         return
 
-    # once a week: fine-tune the image model's last layers instead of collecting
+    # once a day: publish the fine-tuned layers for the players, if they're better (also when asked in finetune_request.txt)
     st = state_get(); ft_res = None
-    due = (time.time() - st.get("ft_at", 0)) > FT_EVERY_DAYS * 86400
-    have = store.with_images(STYLE_CATS)
-    # a fine-tune can also be asked for by committing a new line to finetune_request.txt
+    if "ft_pub_at" not in st: state_set(ft_pub_at=st.get("ft_at", time.time())); st = state_get()
+    due = time.time() - st.get("ft_pub_at", 0) > FT_PUBLISH_HOURS * 3600
     req = ""
     try: req = open(os.path.join(HERE, "finetune_request.txt")).read().strip()
     except OSError: pass
     asked = bool(req) and req != st.get("ft_req")
-    if FORCE_FT or asked or (due and have >= FT_MIN):
-        state_set(ft_at=time.time(), ft_req=req)
-        try:
-            ft_res = finetune(store, model, places); log("fine-tuning:", ft_res)
-        except Exception as e:
-            gh_error(f"Fine-tuning failed: {e}"); traceback.print_exc(); ft_res = {"error": str(e)[:200]}
-        if ft_res.get("error") or ft_res.get("skipped"): state_set(ft_at=time.time() - (FT_EVERY_DAYS - 1) * 86400)   # try again tomorrow
-        elif ft_res.get("published") is False and ft_res.get("gain", 0) > 0: state_set(ft_at=time.time() - max(0, FT_EVERY_DAYS - 3) * 86400)   # close: try again in 3 days, with more photos
+    if FORCE_FT or asked or (due and store.with_images(STYLE_CATS) >= FT_MIN):
+        state_set(ft_pub_at=time.time(), ft_req=req)
+        sess = run_session(store, model)
+        try: ft_res = ft_publish(store, model); log("publishing check:", ft_res)
+        except Exception as e: gh_error(f"Publishing the fine-tuned layers failed: {e}"); traceback.print_exc(); ft_res = {"error": str(e)[:200]}
+        if ft_res.get("error"): state_set(ft_pub_at=time.time() - (FT_PUBLISH_HOURS - 3) * 3600)   # try again in 3 hours
+        ft_res["session"] = sess
         report("running", "learning", examples=store.sizes())
         summary, detail = learn(store, model.ver, places)   # heads first (on the new layers, if published)…
         if ft_res.get("published"):                          # …then tell the players to switch
             save_model_row(ver=model.ver, url=f"branch-v{model.ver}.onnx", gain=ft_res["gain"], at=datetime.now(timezone.utc).isoformat(),
                            n=ft_res["n"], base=BASE_NAME)
             gh_note(f"Published fine-tuned layers v{model.ver} (+{round(ft_res['gain'] * 100, 1)} points).")
-        finish(store, run_started, 0, {}, summary, detail, ft_res)
+        finish(store, run_started, 0, {}, summary, dict(detail, ft_session=sess), ft_res)
         return
 
     # the bigger model is new: spend whole runs catching up on the collection until it has read enough
@@ -1071,9 +1156,10 @@ def main():
         d, a = store.big_progress()
         if a and d < BIG_CATCHUP * a:
             big_fill(store, bm, BIG_CATCHUP_MIN, "bigger model (catching up)")
+            sess = run_session(store, model)
             report("running", "learning", examples=store.sizes())
             summary, detail = learn(store, model.ver, places)
-            finish(store, run_started, 0, {}, summary, detail, None)
+            finish(store, run_started, 0, {}, summary, dict(detail, ft_session=sess), None)
             return
 
     deadline = T0 + MINUTES * 60
@@ -1171,15 +1257,17 @@ def main():
     if bm is not None:
         try: big_fill(store, bm, BIG_FILL_MIN)
         except Exception as e: gh_error(f"Bigger model failed: {e}"); traceback.print_exc(limit=3)
+    sess = run_session(store, model)
     report("running", "learning", photos=sum(v["photos"] for v in stats.values()), plates=sum(v["plates"] for v in stats.values()), visits=visits, examples=store.sizes())
     summary, detail = learn(store, model.ver, places)
-    finish(store, run_started, visits, stats, summary, detail, None)
+    finish(store, run_started, visits, stats, summary, dict(detail, ft_session=sess), None)
 
 def finish(store, run_started, visits, stats, summary, detail, ft_res):
     photos = sum(v["photos"] for v in stats.values()); plates = sum(v["plates"] for v in stats.values())
     run = {"at": datetime.now(timezone.utc).isoformat(), "minutes": round((time.time() - T0) / 60, 1), "visits": visits,
            "photos": photos, "plates": plates, "heads": {c: s for c, s, _ in summary}, "examples": store.sizes(), "with_pictures": store.with_images(STYLE_CATS)}
     if ft_res: run["finetune"] = ft_res; detail = dict(detail, finetune=ft_res)
+    if detail.get("ft_session"): run["ft_session"] = detail["ft_session"]
     detail = dict(detail, _pictures=run["with_pictures"])   # shown on the progress page (fine-tuning starts at FT_MIN)
     try:
         d, a = store.big_progress()
