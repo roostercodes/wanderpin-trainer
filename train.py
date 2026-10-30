@@ -1035,13 +1035,13 @@ def big_setup(store):
         imgs = [prep(Image.open(io.BytesIO(r[0])).convert("RGB")) for r in rows] or None
         cos = big.export(path + ".tmp", log, check_images=imgs, pretrained=None if os.environ.get("BIG_RANDOM") == "1" else big.WEIGHTS)   # random: local tests only
         if cos < 0.97: os.remove(path + ".tmp"); raise RuntimeError(f"the int8 copy doesn't match the original well enough ({cos:.3f})")
-        os.replace(path + ".tmp", path)
+        os.replace(path + ".tmp", path); state_set(big_q=getattr(big.export, "kind", ""))
     blob = open(path, "rb").read()
     parts = [f"{big.NAME}.part{i}" for i in range(len(big.parts_of(blob)))]
     if info.get("tag") != big.TAG or info.get("bytes") != len(blob) or public_size(parts[0]) is None:
         log(f"bigger model: uploading {len(parts)} parts for the players…")
         for name, chunk in zip(parts, big.parts_of(blob)): storage_put(name, chunk)
-        save_model_row(big={"tag": big.TAG, "parts": parts, "bytes": len(blob), "name": "CLIP ViT-B/16 (DataComp)", "at": datetime.now(timezone.utc).isoformat()})
+        save_model_row(big={"tag": big.TAG, "parts": parts, "bytes": len(blob), "name": "CLIP ViT-B/16 (DataComp)", "q": state_get().get("big_q", ""), "at": datetime.now(timezone.utc).isoformat()})
         gh_note(f"Uploaded the bigger image model ({round(len(blob) / 1e6)} MB in {len(parts)} parts).")
     return big.Big(path)
 
