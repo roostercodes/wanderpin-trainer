@@ -8,6 +8,9 @@ on:
       minutes:
         description: "Minutes to spend collecting photos"
         default: "45"
+      finetune:
+        description: "Fine-tune the image model this run (1 = yes)"
+        default: "0"
 
 permissions:
   contents: write            # to save stats.json once a day
@@ -41,6 +44,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           MINUTES: ${{ github.event.inputs.minutes || '45' }}
+          FORCE_FT: ${{ github.event.inputs.finetune || '0' }}
         run: |
           # back up the collection to Supabase once a day (07 UTC) and on manual runs
           if [ "$(date -u +%H)" = "07" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then export BACKUP=1; fi
