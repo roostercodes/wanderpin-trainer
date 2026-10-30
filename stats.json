@@ -1,38 +1,38 @@
 {
- "at": "2026-10-30T11:32:28.784439+00:00",
- "minutes": 74.2,
- "visits": 6850,
- "photos": 8483,
+ "at": "2026-10-30T12:46:25.397097+00:00",
+ "minutes": 73.0,
+ "visits": 6922,
+ "photos": 8337,
  "plates": 0,
  "heads": {
   "scene": "88 groups, 44% right, 65% top-3 (line, tuned layers)",
-  "pole": "88 groups, 40% right, 59% top-3 (line, tuned layers)",
-  "sign": "88 groups, 25% right, 40% top-3 (line, tuned layers)",
-  "guardrail": "save failed: HTTPSConnectionPool(host='ymudrkhxkvxkwdkijzvc.supabase.co', port=443): Read timed out. (read timeout=60)",
+  "pole": "88 groups, 39% right, 58% top-3 (line, tuned layers)",
+  "sign": "88 groups, 25% right, 41% top-3 (line, tuned layers)",
+  "guardrail": "88 groups, 44% right, 61% top-3 (line, tuned layers)",
   "lamp": "88 groups, 31% right, 47% top-3 (line, tuned layers)",
-  "bollard": "33 groups, 46% right, 64% top-3 (line, tuned layers)",
+  "bollard": "88 groups, 43% right, 58% top-3 (network)",
   "plate": "89 groups, 70% right, 81% top-3 (network)",
-  "area": "526 groups, 20% right, 35% top-3 (network, tuned layers)",
-  "det_pole": "2 groups, 97% right, 100% top-3 (line)",
-  "det_sign": "2 groups, 98% right, 100% top-3 (line)",
-  "det_guardrail": "2 groups, 93% right, 100% top-3 (line)",
+  "area": "526 groups, 21% right, 35% top-3 (network, tuned layers)",
+  "det_pole": "2 groups, 96% right, 100% top-3 (line)",
+  "det_sign": "2 groups, 99% right, 100% top-3 (line)",
+  "det_guardrail": "2 groups, 94% right, 100% top-3 (line)",
   "det_lamp": "2 groups, 100% right, 100% top-3 (line)",
-  "det_bollard": "2 groups, 98% right, 100% top-3 (line)",
-  "whole spot": "51% from the views, 58% with everything (2997 unseen spots)"
+  "det_bollard": "2 groups, 99% right, 100% top-3 (line)",
+  "whole spot": "51% from the views, 60% with everything (2995 unseen spots)"
  },
  "examples": {
-  "bollard": 8795,
+  "bollard": 8973,
   "det_bollard": 8000,
   "det_guardrail": 8000,
   "det_lamp": 8000,
   "det_pole": 8000,
   "det_sign": 8000,
-  "guardrail": 45306,
-  "lamp": 19833,
+  "guardrail": 46241,
+  "lamp": 20445,
   "plate": 14096,
-  "pole": 65110,
+  "pole": 65502,
   "scene": 70400,
-  "sign": 37213
+  "sign": 38253
  },
- "with_pictures": 241408
+ "with_pictures": 244409
 }
