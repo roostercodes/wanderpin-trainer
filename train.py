@@ -27,6 +27,8 @@ import requests
 from PIL import Image, ImageFilter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import big   # the bigger image model (big.py)
 
 # ---------------- settings ----------------
 SB_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
@@ -45,6 +47,10 @@ FT_MINUTES = float(os.environ.get("FT_MINUTES") or 90)        # time spent fine-
 FT_MAX = int(os.environ.get("FT_MAX") or 60000)               # cut-outs used for fine-tuning
 FT_GAIN = float(os.environ.get("FT_GAIN") or 0.015)           # must beat the current layers by this much to be published
 FORCE_FT = os.environ.get("FORCE_FT", "") in ("1", "true")
+USE_BIG = os.environ.get("USE_BIG", "1") not in ("0", "false")    # the bigger model for the country/area guesses
+BIG_CATCHUP = float(os.environ.get("BIG_CATCHUP") or 0.5)      # until it has read this share of the cut-outs, a run only does that…
+BIG_CATCHUP_MIN = float(os.environ.get("BIG_CATCHUP_MIN") or 200)  # …for this long
+BIG_FILL_MIN = float(os.environ.get("BIG_FILL_MIN") or 15)     # otherwise: this long after collecting, for new cut-outs
 SEED = os.environ.get("SEED")
 MLY = os.environ.get("MLY_BASE", "https://graph.mapillary.com")
 TILES = os.environ.get("MLY_TILES", "https://tiles.mapillary.com/maps/vtp/mly1_public/2")
@@ -514,6 +520,8 @@ class Store:
         self.db.execute("""create table if not exists ex (id integer primary key, cat text, y text, g text, src text, lat real, lng real,
                            e blob, e2 blob, v2 integer default 0, img blob, at real)""")
         self.db.execute("create index if not exists ex_cy on ex(cat, y)")
+        if "eb" not in [r[1] for r in self.db.execute("pragma table_info(ex)")]:
+            self.db.execute("alter table ex add column eb blob")   # the bigger model's numbers (filled in a bit every run)
         self.db.execute("create index if not exists ex_src on ex(src)")
         self.cnt = {}; self.seen = set()
         if fresh: self.restore()
@@ -542,21 +550,29 @@ class Store:
     def add(self, cat, label, emb, group="", src=None, ll=None, img=None, emb2=None, ver=0):
         row = (group, src, ll[0] if ll else None, ll[1] if ll else None, q8(emb), q8(emb2) if emb2 is not None else None, ver if emb2 is not None else 0, img, time.time())
         if self.count(cat, label) >= self.cap(cat):   # full: replace a random old one so the collection keeps freshening
-            j = self.db.execute("select id from ex where cat=? and y=? order by random() limit 1", (cat, label)).fetchone()
-            if j: self.db.execute("update ex set g=?, src=?, lat=?, lng=?, e=?, e2=?, v2=?, img=?, at=? where id=?", row + (j[0],))
+            # (ones the bigger model hasn't read yet go first, so its work isn't thrown away)
+            j = self.db.execute("select id from ex where cat=? and y=? order by eb is not null, random() limit 1", (cat, label)).fetchone()
+            if j: self.db.execute("update ex set g=?, src=?, lat=?, lng=?, e=?, e2=?, v2=?, img=?, at=?, eb=null where id=?", row + (j[0],))
         else:
             self.db.execute("insert into ex (cat, y, g, src, lat, lng, e, e2, v2, img, at) values (?,?,?,?,?,?,?,?,?,?,?)", (cat, label) + row)
             self.cnt[(cat, label)] = self.count(cat, label) + 1
         if src: self.seen.add(src)
     def commit(self): self.db.commit()
     def arrays(self, cat, ver=0, need_ll=False):
-        """Embeddings, labels, spots and places for one category; with ver, the fine-tuned embeddings of that version."""
-        col, cond = ("e2", "and v2=? and e2 is not null") if ver else ("e", "")
+        """Embeddings, labels, spots and places for one category; with ver, the fine-tuned embeddings of that
+        version; with ver = the bigger model's tag, the bigger model's embeddings."""
+        if ver == big.TAG: col, cond, args = "eb", "and eb is not null", (cat,)
+        elif ver: col, cond, args = "e2", "and v2=? and e2 is not null", (cat, ver)
+        else: col, cond, args = "e", "", (cat,)
         q = f"select {col}, y, g, lat, lng from ex where cat=? {cond}" + (" and lat is not null" if need_ll else "")
-        rows = self.db.execute(q, (cat, ver) if ver else (cat,)).fetchall()
+        rows = self.db.execute(q, args).fetchall()
         if not rows: return None
         E = np.frombuffer(b"".join(r[0] for r in rows), np.int8).reshape(len(rows), -1).astype(np.float32)
         return E, np.array([r[1] for r in rows]), np.array([r[2] or f"r{i}" for i, r in enumerate(rows)]), np.array([[r[3] or 0, r[4] or 0] for r in rows], np.float32)
+    def big_progress(self):
+        """How many of the cut-outs with pictures the bigger model has read: (done, all)."""
+        q = f"select count(img), count(case when img is not null then eb end) from ex where cat in ({','.join('?' * len(STYLE_CATS))})"
+        a, d = self.db.execute(q, STYLE_CATS).fetchone(); return int(d or 0), int(a or 0)
     def with_images(self, cats):
         return self.db.execute(f"select count(*) from ex where img is not null and cat in ({','.join('?' * len(cats))})", cats).fetchone()[0]
     # ---- backup of the numbers (not the pictures) to Supabase, in parts under the 50 MB file limit ----
@@ -718,6 +734,9 @@ def area_cells(ll, y, places):
             meta[f"{cc}.{j}"] = [round(float(c[0]), 3), round(float(c[1]), 3), best.get(j, (0, ""))[1]]
     return lab.astype(str), meta
 
+def OPT_NAME(opt): return "bigger model" if opt == big.TAG else "tuned layers" if opt else "plain"
+def OPT_SRC(opt): return big.TAG if opt == big.TAG else f"b{opt}" if opt else None
+
 def learn(store, ver, places, deadline=None):
     """Retrain everything on the whole collection and publish it."""
     summary, detail, tests = [], {}, {}
@@ -725,12 +744,13 @@ def learn(store, ver, places, deadline=None):
     for cat in jobs:
         if deadline and time.time() > deadline: summary.append((cat, "skipped (out of time)", 0)); continue
         src_cat = "scene" if cat == "area" else cat
-        # with fine-tuned layers: try both the tuned and the plain numbers, keep whichever does better on unseen spots
+        # try the plain numbers, the fine-tuned ones and the bigger model's; keep whichever does best on unseen spots
         options = [0]
-        if ver and cat in STYLE_CATS + ["area"]:
-            a2 = store.arrays(src_cat, ver, need_ll=cat == "area")
-            if a2 is not None and len(a2[1]) >= 200: options = [ver, 0]
-        h = None; use = 0; extra = None; y = []
+        if cat in STYLE_CATS + ["area"]:
+            if ver: options.insert(0, ver)
+            nb = store.db.execute("select count(*) from ex where cat=? and eb is not null" + (" and lat is not null" if cat == "area" else ""), (src_cat,)).fetchone()[0]
+            if nb >= (600 if cat == "area" else 200): options.append(big.TAG)
+        tried = []   # (head, option, extra, labels)
         for opt in options:
             A = store.arrays(src_cat, opt, need_ll=cat == "area")
             if A is None or len(A[1]) < 12: continue
@@ -740,15 +760,21 @@ def learn(store, ver, places, deadline=None):
                 yy, cells = area_cells(ll, yy, places); ex = {"cells": cells}
             try: hh = train_head(E, yy, g, try_mlp=not cat.startswith("det_"), Cs=(2.0,) if cat == "area" else (0.5, 2.0, 8.0))
             except Exception as e: log(cat, "failed:", e); traceback.print_exc(limit=2); continue
-            if hh: log(f"  {cat} {'tuned' if opt else 'plain'}: {round(hh['acc'] * 100, 1)}%")
-            if hh and (h is None or hh["acc"] > h["acc"]): h, use, extra, y = hh, opt, ex, yy
-        if not h: summary.append((cat, "not enough examples yet", len(y))); continue
-        packed = pack_head(h, src=f"b{use}" if use else None, extra=extra)
+            if hh: log(f"  {cat} {OPT_NAME(opt)}: {round(hh['acc'] * 100, 1)}%"); tried.append((hh, opt, ex, yy))
+        if not tried: summary.append((cat, "not enough examples yet", 0)); continue
+        h, use, extra, y = max(tried, key=lambda t: t[0]["acc"])
+        packed = pack_head(h, src=OPT_SRC(use), extra=extra)
+        if use == big.TAG:   # for players whose device can't run the bigger model: the best of the others too
+            small = [t for t in tried if t[1] != big.TAG]
+            if small:
+                hs, us, es, _ = max(small, key=lambda t: t[0]["acc"])
+                packed["alt"] = pack_head(hs, src=OPT_SRC(us), extra=es)
         try: save_head(cat, packed)
         except Exception as e: gh_error(f"Saving {cat} failed: {e}"); summary.append((cat, f"save failed: {e}", h["n"])); continue
         kind = "network" if h["kind"] == "mlp" else "line"
-        summary.append((cat, f"{len(h['classes'])} groups, {round(h['acc'] * 100)}% right, {round(h['acc3'] * 100)}% top-3 ({kind}{', tuned layers' if use else ''})", h["n"]))
-        detail[cat] = {"acc": h["acc"], "acc3": h["acc3"], "n": h["n"], "classes": len(h["classes"]), "kind": h["kind"], "lr_acc": h["lr_acc"], "tuned": bool(use)}
+        summary.append((cat, f"{len(h['classes'])} groups, {round(h['acc'] * 100)}% right, {round(h['acc3'] * 100)}% top-3 ({kind}{', ' + OPT_NAME(use) if use else ''})", h["n"]))
+        detail[cat] = {"acc": h["acc"], "acc3": h["acc3"], "n": h["n"], "classes": len(h["classes"]), "kind": h["kind"], "lr_acc": h["lr_acc"],
+                       "tuned": isinstance(use, int) and use > 0, "big": use == big.TAG, "options": {OPT_NAME(t[1]): t[0]["acc"] for t in tried}}
         log("saved", cat, summary[-1][1])
         if cat in ("scene", "pole", "sign", "guardrail", "lamp", "bollard") and "_test" in h: tests[cat] = h["_test"]
     try:
@@ -907,6 +933,70 @@ def finetune(store, model, places):
     return res
 
 
+# ---------------- the bigger image model ----------------
+def save_model_row(**kw):
+    """The "model" row tells the players which extra model files to use; change only the given parts."""
+    cur = read_head("model") or {}; cur.update(kw); save_head("model", cur)
+
+def big_setup(store):
+    """The int8 bigger model in the cache: made once (weights from Hugging Face), uploaded in parts for the players."""
+    path = os.path.join(CACHE, big.NAME); os.makedirs(CACHE, exist_ok=True)
+    info = (read_head("model") or {}).get("big") or {}
+    if not os.path.exists(path) and info.get("tag") == big.TAG and info.get("parts"):
+        try:   # a fresh cache: get the copy the players use
+            blob = b"".join(storage_get(p) or b"" for p in info["parts"])
+            if len(blob) == info.get("bytes"): open(path, "wb").write(blob); log("bigger model: downloaded the uploaded copy")
+        except Exception as e: log("bigger model: couldn't download the uploaded copy:", e)
+    if not os.path.exists(path):
+        report("running", "getting the bigger image model ready (first time only)", examples=store.sizes())
+        rows = store.db.execute("select img from ex where cat='scene' and img is not null order by random() limit 16").fetchall()
+        imgs = [prep(Image.open(io.BytesIO(r[0])).convert("RGB")) for r in rows] or None
+        cos = big.export(path + ".tmp", log, check_images=imgs, pretrained=None if os.environ.get("BIG_RANDOM") == "1" else big.WEIGHTS)   # random: local tests only
+        if cos < 0.97: os.remove(path + ".tmp"); raise RuntimeError(f"the int8 copy doesn't match the original well enough ({cos:.3f})")
+        os.replace(path + ".tmp", path)
+    blob = open(path, "rb").read()
+    parts = [f"{big.NAME}.part{i}" for i in range(len(big.parts_of(blob)))]
+    if info.get("tag") != big.TAG or info.get("bytes") != len(blob) or public_size(parts[0]) is None:
+        log(f"bigger model: uploading {len(parts)} parts for the players…")
+        for name, chunk in zip(parts, big.parts_of(blob)): storage_put(name, chunk)
+        save_model_row(big={"tag": big.TAG, "parts": parts, "bytes": len(blob), "name": "CLIP ViT-B/16 (DataComp)", "at": datetime.now(timezone.utc).isoformat()})
+        gh_note(f"Uploaded the bigger image model ({round(len(blob) / 1e6)} MB in {len(parts)} parts).")
+    return big.Big(path)
+
+def big_fill(store, bm, minutes, label="bigger model"):
+    """Let the bigger model read cut-outs it hasn't seen yet, every country and kind a little at a time."""
+    t_end = time.time() + minutes * 60
+    have = {}
+    q = f"select cat, y, count(img), count(case when img is not null then eb end) from ex where cat in ({','.join('?' * len(STYLE_CATS))}) group by cat, y"
+    for cat, y, n_img, n_eb in store.db.execute(q, STYLE_CATS): have[(cat, y)] = (n_img, n_eb)
+    todo = []
+    for (cat, y), (n_img, n_eb) in have.items():
+        if n_img <= n_eb: continue
+        ids = [r[0] for r in store.db.execute("select id from ex where cat=? and y=? and img is not null and eb is null order by random() limit ?", (cat, y, n_img - n_eb))]
+        todo += [(n_eb + k, random.random(), i) for k, i in enumerate(ids)]   # the least-read groups first
+    todo.sort(); ids = [t[2] for t in todo]
+    done, last = 0, time.time()
+    log(f"{label}: {len(ids)} cut-outs to read, {minutes} min")
+    for i in range(0, len(ids), 64):
+        if time.time() > t_end: break
+        chunk = store.db.execute("select id, img from ex where id in (%s) and img is not null" % ",".join("?" * len(ids[i:i + 64])), ids[i:i + 64]).fetchall()
+        arr, ok = [], []
+        for r in chunk:
+            try: arr.append(prep(Image.open(io.BytesIO(r[1])).convert("RGB"))); ok.append(r[0])
+            except Exception: pass
+        if not arr: continue
+        E = bm.run(arr)
+        store.db.executemany("update ex set eb=? where id=?", [(q8(E[k]), ok[k]) for k in range(len(ok))])
+        done += len(ok)
+        if time.time() - last > 120:
+            last = time.time(); store.commit(); d, a = store.big_progress()
+            log(f"  {label}: read {done} this run ({round(done / max(1, time.time() - t_end + minutes * 60), 1)}/s), {d}/{a} overall")
+            report("running", f"bigger model: read {round(100 * d / max(1, a))}% of the cut-outs", examples=store.sizes())
+    store.commit()
+    d, a = store.big_progress(); log(f"{label}: read {done} this run; {d}/{a} overall")
+    return done
+
+
 # ---------------- main ----------------
 def main():
     if SEED: random.seed(int(SEED)); np.random.seed(int(SEED))
@@ -930,6 +1020,10 @@ def main():
     except Exception: pass
     run_started = datetime.now(timezone.utc).isoformat()
     report("running", "starting", at=run_started, photos=0, plates=0, visits=0, examples=store.sizes())
+    bm = None
+    if USE_BIG:
+        try: bm = big_setup(store)
+        except Exception as e: gh_error(f"Bigger model not ready: {e}"); traceback.print_exc(limit=3)
 
     # asked for (bench_request.txt): test bigger image models on our collection instead of collecting
     breq = ""
@@ -966,11 +1060,21 @@ def main():
         report("running", "learning", examples=store.sizes())
         summary, detail = learn(store, model.ver, places)   # heads first (on the new layers, if published)…
         if ft_res.get("published"):                          # …then tell the players to switch
-            save_head("model", {"ver": model.ver, "url": f"branch-v{model.ver}.onnx", "gain": ft_res["gain"], "at": datetime.now(timezone.utc).isoformat(),
-                                "n": ft_res["n"], "base": BASE_NAME})
+            save_model_row(ver=model.ver, url=f"branch-v{model.ver}.onnx", gain=ft_res["gain"], at=datetime.now(timezone.utc).isoformat(),
+                           n=ft_res["n"], base=BASE_NAME)
             gh_note(f"Published fine-tuned layers v{model.ver} (+{round(ft_res['gain'] * 100, 1)} points).")
         finish(store, run_started, 0, {}, summary, detail, ft_res)
         return
+
+    # the bigger model is new: spend whole runs catching up on the collection until it has read enough
+    if bm is not None:
+        d, a = store.big_progress()
+        if a and d < BIG_CATCHUP * a:
+            big_fill(store, bm, BIG_CATCHUP_MIN, "bigger model (catching up)")
+            report("running", "learning", examples=store.sizes())
+            summary, detail = learn(store, model.ver, places)
+            finish(store, run_started, 0, {}, summary, detail, None)
+            return
 
     deadline = T0 + MINUTES * 60
     stats = {cc: {"photos": 0, "plates": 0} for cc in COVERAGE}
@@ -1064,6 +1168,9 @@ def main():
     if BACKUP:
         try: store.backup()
         except Exception as e: gh_error(f"Backing up the collection failed: {e}")
+    if bm is not None:
+        try: big_fill(store, bm, BIG_FILL_MIN)
+        except Exception as e: gh_error(f"Bigger model failed: {e}"); traceback.print_exc(limit=3)
     report("running", "learning", photos=sum(v["photos"] for v in stats.values()), plates=sum(v["plates"] for v in stats.values()), visits=visits, examples=store.sizes())
     summary, detail = learn(store, model.ver, places)
     finish(store, run_started, visits, stats, summary, detail, None)
@@ -1074,6 +1181,10 @@ def finish(store, run_started, visits, stats, summary, detail, ft_res):
            "photos": photos, "plates": plates, "heads": {c: s for c, s, _ in summary}, "examples": store.sizes(), "with_pictures": store.with_images(STYLE_CATS)}
     if ft_res: run["finetune"] = ft_res; detail = dict(detail, finetune=ft_res)
     detail = dict(detail, _pictures=run["with_pictures"])   # shown on the progress page (fine-tuning starts at FT_MIN)
+    try:
+        d, a = store.big_progress()
+        if d: run["big_read"] = [d, a]; detail = dict(detail, _big={"read": d, "of": a, "name": "CLIP ViT-B/16"})
+    except Exception: pass
     with open(os.path.join(HERE, "stats.json"), "w") as f: json.dump(run, f, indent=1)
     if os.environ.get("GITHUB_STEP_SUMMARY"):
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:

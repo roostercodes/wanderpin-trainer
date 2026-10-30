@@ -15,6 +15,8 @@ Every hour GitHub runs `train.py` on its own servers for about 45 minutes. It:
 
 **Once a week**, when at least 30,000 cut-outs with pictures have been collected, a run fine-tunes the image model's last 2 layers on the collection. It does this instead of collecting, and it takes a few hours. The new layers are published (`wp-models/branch-vN.onnx`, about 7 MB) only if they beat the current ones on unseen places; players then download just that small file.
 
+**The bigger image model** (`big.py`): a test of bigger models on our own photos (`bench.py`, Oct 30) showed CLIP ViT-B/16 with DataComp weights clearly ahead of TinyCLIP for telling countries apart. The trainer makes an int8 copy of it once (about 89 MB), uploads it to Supabase Storage in 2 parts (`wp-models/wanderpin-big-1.onnx.part0/1`, under the 50 MB file limit) and lets it read the collection's cut-outs a little every run (whole runs at first, until half are read). Each country/area style is then trained on the plain, tuned and bigger-model numbers, and keeps whichever is best on unseen places; a style that picks the bigger model also carries the best of the others, for devices that don't run it. Players download it only once a style uses it. Turn it off with the variable `USE_BIG=0`.
+
 `models/wanderpin-vision-2.onnx` is the players' image model. The trainer uploads it to Supabase Storage when it's missing or changed. `models/branch_init.npz` holds the original weights of the 2 layers that get fine-tuned.
 
 Results of each run are on the run's page under **Actions**; `stats.json` is updated once a day.
