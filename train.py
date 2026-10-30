@@ -725,20 +725,24 @@ def learn(store, ver, places, deadline=None):
     for cat in jobs:
         if deadline and time.time() > deadline: summary.append((cat, "skipped (out of time)", 0)); continue
         src_cat = "scene" if cat == "area" else cat
-        use = 0
+        # with fine-tuned layers: try both the tuned and the plain numbers, keep whichever does better on unseen spots
+        options = [0]
         if ver and cat in STYLE_CATS + ["area"]:
             a2 = store.arrays(src_cat, ver, need_ll=cat == "area")
-            if a2 is not None and len(a2[1]) >= 200: use = ver
-        A = store.arrays(src_cat, use, need_ll=cat == "area")
-        if A is None or len(A[1]) < 12: summary.append((cat, "not enough examples yet", 0 if A is None else len(A[1]))); continue
-        E, y, g, ll = A
-        extra = None
-        if cat == "area":
-            if len(y) < 300: summary.append((cat, "not enough places yet", len(y))); continue
-            y, cells = area_cells(ll, y, places); extra = {"cells": cells}
-        try: h = train_head(E, y, g, try_mlp=not cat.startswith("det_"), Cs=(2.0,) if cat == "area" else (0.5, 2.0, 8.0))
-        except Exception as e: summary.append((cat, f"couldn't learn yet ({e})", len(y))); log(cat, "failed:", e); traceback.print_exc(limit=2); continue
-        if not h: summary.append((cat, "needs at least 2 groups", len(y))); continue
+            if a2 is not None and len(a2[1]) >= 200: options = [ver, 0]
+        h = None; use = 0; extra = None; y = []
+        for opt in options:
+            A = store.arrays(src_cat, opt, need_ll=cat == "area")
+            if A is None or len(A[1]) < 12: continue
+            E, yy, g, ll = A; ex = None
+            if cat == "area":
+                if len(yy) < 300: continue
+                yy, cells = area_cells(ll, yy, places); ex = {"cells": cells}
+            try: hh = train_head(E, yy, g, try_mlp=not cat.startswith("det_"), Cs=(2.0,) if cat == "area" else (0.5, 2.0, 8.0))
+            except Exception as e: log(cat, "failed:", e); traceback.print_exc(limit=2); continue
+            if hh: log(f"  {cat} {'tuned' if opt else 'plain'}: {round(hh['acc'] * 100, 1)}%")
+            if hh and (h is None or hh["acc"] > h["acc"]): h, use, extra, y = hh, opt, ex, yy
+        if not h: summary.append((cat, "not enough examples yet", len(y))); continue
         packed = pack_head(h, src=f"b{use}" if use else None, extra=extra)
         try: save_head(cat, packed)
         except Exception as e: gh_error(f"Saving {cat} failed: {e}"); summary.append((cat, f"save failed: {e}", h["n"])); continue
