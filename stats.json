@@ -1,143 +1,38 @@
 {
- "at": "2026-10-30T09:03:21.578203+00:00",
- "minutes": 238.9,
- "visits": 0,
- "photos": 0,
+ "at": "2026-10-30T10:17:24.579691+00:00",
+ "minutes": 73.0,
+ "visits": 6312,
+ "photos": 8658,
  "plates": 0,
- "heads": {},
+ "heads": {
+  "scene": "88 groups, 45% right, 65% top-3 (line, tuned layers)",
+  "pole": "88 groups, 39% right, 60% top-3 (line, tuned layers)",
+  "sign": "88 groups, 24% right, 40% top-3 (line, tuned layers)",
+  "guardrail": "87 groups, 45% right, 62% top-3 (line, tuned layers)",
+  "lamp": "88 groups, 32% right, 48% top-3 (line, tuned layers)",
+  "bollard": "22 groups, 46% right, 60% top-3 (line, tuned layers)",
+  "plate": "89 groups, 70% right, 81% top-3 (network)",
+  "area": "527 groups, 20% right, 36% top-3 (network, tuned layers)",
+  "det_pole": "2 groups, 97% right, 100% top-3 (line)",
+  "det_sign": "2 groups, 99% right, 100% top-3 (line)",
+  "det_guardrail": "2 groups, 92% right, 100% top-3 (line)",
+  "det_lamp": "2 groups, 100% right, 100% top-3 (line)",
+  "det_bollard": "2 groups, 99% right, 100% top-3 (line)",
+  "whole spot": "52% from the views, 61% with everything (3003 unseen spots)"
+ },
  "examples": {
-  "bollard": 8381,
+  "bollard": 8618,
   "det_bollard": 8000,
   "det_guardrail": 8000,
   "det_lamp": 8000,
   "det_pole": 8000,
   "det_sign": 8000,
-  "guardrail": 43321,
-  "lamp": 18405,
+  "guardrail": 44204,
+  "lamp": 19139,
   "plate": 14096,
-  "pole": 62995,
+  "pole": 64430,
   "scene": 70400,
-  "sign": 34393
+  "sign": 35961
  },
- "with_pictures": 233029,
- "bench": {
-  "per_country": 45,
-  "models": [
-   {
-    "name": "TinyCLIP 40M/32 (now)",
-    "mb": 45,
-    "scene": {
-     "top1": 0.265,
-     "top3": 0.46,
-     "test": 818
-    },
-    "pole": {
-     "top1": 0.239,
-     "top3": 0.405,
-     "test": 694
-    },
-    "sign": {
-     "top1": 0.125,
-     "top3": 0.229,
-     "test": 826
-    }
-   },
-   {
-    "name": "CLIP ViT-B/32 (OpenAI)",
-    "mb": 88,
-    "scene": {
-     "top1": 0.302,
-     "top3": 0.512,
-     "test": 818
-    },
-    "pole": {
-     "top1": 0.256,
-     "top3": 0.434,
-     "test": 694
-    },
-    "sign": {
-     "top1": 0.116,
-     "top3": 0.203,
-     "test": 826
-    },
-    "ms_per_image_server": 67
-   },
-   {
-    "name": "CLIP ViT-B/16 (OpenAI)",
-    "mb": 87,
-    "scene": {
-     "top1": 0.366,
-     "top3": 0.598,
-     "test": 818
-    },
-    "pole": {
-     "top1": 0.293,
-     "top3": 0.46,
-     "test": 694
-    },
-    "sign": {
-     "top1": 0.116,
-     "top3": 0.202,
-     "test": 826
-    },
-    "ms_per_image_server": 255
-   },
-   {
-    "name": "CLIP ViT-B/16 (DataComp)",
-    "mb": 87,
-    "scene": {
-     "top1": 0.366,
-     "top3": 0.599,
-     "test": 818
-    },
-    "pole": {
-     "top1": 0.333,
-     "top3": 0.509,
-     "test": 694
-    },
-    "sign": {
-     "top1": 0.151,
-     "top3": 0.265,
-     "test": 826
-    },
-    "ms_per_image_server": 253
-   },
-   {
-    "name": "SigLIP ViT-B/16",
-    "mb": 93,
-    "scene": {
-     "top1": 0.29,
-     "top3": 0.517,
-     "test": 818
-    },
-    "pole": {
-     "top1": 0.233,
-     "top3": 0.416,
-     "test": 694
-    },
-    "sign": {
-     "top1": 0.096,
-     "top3": 0.179,
-     "test": 826
-    },
-    "ms_per_image_server": 246
-   },
-   {
-    "name": "StreetCLIP ViT-L/14-336 (made for Street View; too big for a browser, for comparison)",
-    "mb": 305,
-    "scene": {
-     "top1": 0.524,
-     "top3": 0.747,
-     "test": 359
-    },
-    "ms_per_image_server": 2490,
-    "note": "scenes only, 20 per country",
-    "current_model_same_sample": {
-     "top1": 0.267,
-     "top3": 0.437,
-     "test": 359
-    }
-   }
-  ]
- }
+ "with_pictures": 237659
 }
