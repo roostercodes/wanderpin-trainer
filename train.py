@@ -18,7 +18,7 @@ the collection, and publishes them only if they beat the current ones on unseen 
 Secrets (GitHub → Settings → Secrets and variables → Actions):
   MAPILLARY_TOKEN, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 """
-import base64, io, json, math, os, random, sqlite3, subprocess, sys, time, traceback
+import base64, io, json, math, os, random, re, sqlite3, subprocess, sys, time, traceback
 from concurrent.futures import ThreadPoolExecutor, FIRST_COMPLETED, wait
 from datetime import datetime, timezone
 
@@ -103,18 +103,30 @@ def storage_get(path):
     r = http.get(f"{SB_URL}/storage/v1/object/wp-models/{path}", headers=sb_headers(), timeout=300)
     if r.status_code in (400, 404): return None
     r.raise_for_status(); return r.content
+def retry(fn, what, tries=5):
+    """Supabase sometimes times out for a minute or two: try again, waiting longer each time."""
+    for k in range(tries):
+        try: return fn()
+        except (requests.RequestException, RuntimeError) as e:
+            code = re.search(r"failed: (\d{3})", str(e)) if isinstance(e, RuntimeError) else None
+            if k == tries - 1 or (code and code.group(1).startswith("4") and code.group(1) not in ("408", "429")): raise   # a real refusal: no point retrying
+            wait = 10 * 3 ** k; log(f"{what}: {e}; trying again in {wait} s"); time.sleep(wait)
 def storage_put(path, data, ctype="application/octet-stream"):
-    r = http.post(f"{SB_URL}/storage/v1/object/wp-models/{path}", headers=sb_headers({"content-type": ctype, "x-upsert": "true"}), data=data, timeout=600)
-    if not r.ok: raise RuntimeError(f"upload {path} failed: {r.status_code} {r.text[:200]}")
+    def go():
+        r = http.post(f"{SB_URL}/storage/v1/object/wp-models/{path}", headers=sb_headers({"content-type": ctype, "x-upsert": "true"}), data=data, timeout=600)
+        if not r.ok: raise RuntimeError(f"upload {path} failed: {r.status_code} {r.text[:200]}")
+    retry(go, f"uploading {path}")
 def public_size(path):
     try:
         r = http.head(f"{SB_URL}/storage/v1/object/public/wp-models/{path}", timeout=30, allow_redirects=True)
         return int(r.headers.get("content-length", -1)) if r.ok else None
     except requests.RequestException: return -1
 def save_head(hid, data):
-    r = http.post(f"{SB_URL}/rest/v1/wp_scan_heads", headers=sb_headers({"content-type": "application/json", "Prefer": "resolution=merge-duplicates"}),
-                  data=json.dumps([{"id": hid, "data": data, "updated_at": datetime.now(timezone.utc).isoformat()}]), timeout=60)
-    if not r.ok: raise RuntimeError(f"saving {hid} failed: {r.status_code} {r.text[:200]} (did you run the newest setup SQL?)")
+    def go():
+        r = http.post(f"{SB_URL}/rest/v1/wp_scan_heads", headers=sb_headers({"content-type": "application/json", "Prefer": "resolution=merge-duplicates"}),
+                      data=json.dumps([{"id": hid, "data": data, "updated_at": datetime.now(timezone.utc).isoformat()}]), timeout=120)
+        if not r.ok: raise RuntimeError(f"saving {hid} failed: {r.status_code} {r.text[:200]} (did you run the newest setup SQL?)")
+    retry(go, f"saving {hid}")
 def read_head(hid):
     try:
         r = http.get(f"{SB_URL}/rest/v1/wp_scan_heads", params={"id": f"eq.{hid}", "select": "data"}, headers=sb_headers(), timeout=30)
@@ -781,6 +793,9 @@ def learn(store, ver, places, deadline=None):
             except Exception as e: log(cat, "failed:", e); traceback.print_exc(limit=2); continue
             if hh: log(f"  {cat} {OPT_NAME(opt)}: {round(hh['acc'] * 100, 1)}%"); tried.append((hh, opt, ex, yy))
         if not tried: summary.append((cat, "not enough examples yet", 0)); continue
+        # a score on fewer countries is easier, so only options that know nearly as many as the most complete one compete
+        most = max(len(t[0]["classes"]) for t in tried)
+        tried = [t for t in tried if len(t[0]["classes"]) >= 0.9 * most]
         h, use, extra, y = max(tried, key=lambda t: t[0]["acc"])
         packed = pack_head(h, src=OPT_SRC(use), extra=extra)
         if use == big.TAG:   # for players whose device can't run the bigger model: the best of the others too
