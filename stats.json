@@ -1,24 +1,24 @@
 {
- "at": "2026-10-31T05:16:34.164993+00:00",
- "minutes": 248.5,
+ "at": "2026-10-31T06:20:25.545749+00:00",
+ "minutes": 62.4,
  "visits": 0,
  "photos": 0,
  "plates": 0,
  "heads": {
   "scene": "88 groups, 50% right, 71% top-3 (line, bigger model)",
   "pole": "88 groups, 40% right, 61% top-3 (line, bigger model)",
-  "sign": "save failed: HTTPSConnectionPool(host='ymudrkhxkvxkwdkijzvc.supabase.co', port=443): Read timed out. (read timeout=60)",
-  "guardrail": "88 groups, 43% right, 60% top-3 (line, tuned layers)",
-  "lamp": "88 groups, 31% right, 46% top-3 (line, tuned layers)",
+  "sign": "88 groups, 23% right, 39% top-3 (line, bigger model)",
+  "guardrail": "save failed: HTTPSConnectionPool(host='ymudrkhxkvxkwdkijzvc.supabase.co', port=443): Read timed out. (read timeout=60)",
+  "lamp": "88 groups, 23% right, 36% top-3 (network, bigger model)",
   "bollard": "88 groups, 42% right, 57% top-3 (network)",
   "plate": "89 groups, 70% right, 81% top-3 (network)",
-  "area": "save failed: ('Connection aborted.', TimeoutError('The write operation timed out'))",
+  "area": "528 groups, 24% right, 41% top-3 (network, bigger model)",
   "det_pole": "2 groups, 97% right, 100% top-3 (line)",
   "det_sign": "2 groups, 99% right, 100% top-3 (line)",
   "det_guardrail": "2 groups, 94% right, 100% top-3 (line)",
   "det_lamp": "2 groups, 100% right, 100% top-3 (line)",
   "det_bollard": "2 groups, 99% right, 100% top-3 (line)",
-  "whole spot": "57% from the views, 64% with everything (2985 unseen spots)"
+  "whole spot": "57% from the views, 62% with everything (2985 unseen spots)"
  },
  "examples": {
   "bollard": 9310,
@@ -35,13 +35,25 @@
   "sign": 40939
  },
  "with_pictures": 251261,
+ "finetune": {
+  "error": "('Connection aborted.', TimeoutError('The write operation timed out'))",
+  "session": {
+   "n": 12000,
+   "steps": 250,
+   "epochs": 2,
+   "acc_first_look": 0.547,
+   "total_steps": 1750,
+   "sessions": 7,
+   "minutes": 9.9
+  }
+ },
  "ft_session": {
   "n": 12000,
   "steps": 250,
   "epochs": 2,
-  "acc_first_look": 0.528,
-  "total_steps": 1500,
-  "sessions": 6,
+  "acc_first_look": 0.547,
+  "total_steps": 1750,
+  "sessions": 7,
   "minutes": 9.9
  },
  "big_read": [
