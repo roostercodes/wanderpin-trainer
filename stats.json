@@ -1,24 +1,24 @@
 {
- "at": "2026-10-31T01:06:46.757518+00:00",
- "minutes": 230.6,
+ "at": "2026-10-31T05:16:34.164993+00:00",
+ "minutes": 248.5,
  "visits": 0,
  "photos": 0,
  "plates": 0,
  "heads": {
-  "scene": "88 groups, 49% right, 71% top-3 (line, bigger model)",
-  "pole": "88 groups, 41% right, 62% top-3 (line, bigger model)",
-  "sign": "88 groups, 24% right, 40% top-3 (line, tuned layers)",
+  "scene": "88 groups, 50% right, 71% top-3 (line, bigger model)",
+  "pole": "88 groups, 40% right, 61% top-3 (line, bigger model)",
+  "sign": "save failed: HTTPSConnectionPool(host='ymudrkhxkvxkwdkijzvc.supabase.co', port=443): Read timed out. (read timeout=60)",
   "guardrail": "88 groups, 43% right, 60% top-3 (line, tuned layers)",
   "lamp": "88 groups, 31% right, 46% top-3 (line, tuned layers)",
   "bollard": "88 groups, 42% right, 57% top-3 (network)",
-  "plate": "89 groups, 69% right, 80% top-3 (network)",
-  "area": "437 groups, 26% right, 43% top-3 (network, bigger model)",
+  "plate": "89 groups, 70% right, 81% top-3 (network)",
+  "area": "save failed: ('Connection aborted.', TimeoutError('The write operation timed out'))",
   "det_pole": "2 groups, 97% right, 100% top-3 (line)",
   "det_sign": "2 groups, 99% right, 100% top-3 (line)",
   "det_guardrail": "2 groups, 94% right, 100% top-3 (line)",
   "det_lamp": "2 groups, 100% right, 100% top-3 (line)",
   "det_bollard": "2 groups, 99% right, 100% top-3 (line)",
-  "whole spot": "56% from the views, 64% with everything (2639 unseen spots)"
+  "whole spot": "57% from the views, 64% with everything (2985 unseen spots)"
  },
  "examples": {
   "bollard": 9310,
@@ -39,13 +39,13 @@
   "n": 12000,
   "steps": 250,
   "epochs": 2,
-  "acc_first_look": 0.505,
-  "total_steps": 1250,
-  "sessions": 5,
-  "minutes": 6.0
+  "acc_first_look": 0.528,
+  "total_steps": 1500,
+  "sessions": 6,
+  "minutes": 9.9
  },
  "big_read": [
-  200384,
+  251261,
   251261
  ]
 }
