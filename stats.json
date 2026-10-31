@@ -1,24 +1,24 @@
 {
- "at": "2026-10-31T09:13:02.734251+00:00",
- "minutes": 86.1,
- "visits": 5618,
- "photos": 6997,
+ "at": "2026-10-31T12:06:46.651391+00:00",
+ "minutes": 172.4,
+ "visits": 0,
+ "photos": 0,
  "plates": 0,
  "heads": {
   "scene": "88 groups, 50% right, 71% top-3 (line, bigger model)",
-  "pole": "88 groups, 40% right, 61% top-3 (line, bigger model)",
+  "pole": "save failed: HTTPSConnectionPool(host='ymudrkhxkvxkwdkijzvc.supabase.co', port=443): Read timed out. (read timeout=60)",
   "sign": "88 groups, 24% right, 40% top-3 (line, tuned layers)",
-  "guardrail": "88 groups, 42% right, 60% top-3 (line, tuned layers)",
-  "lamp": "88 groups, 30% right, 45% top-3 (line, tuned layers)",
-  "bollard": "88 groups, 42% right, 57% top-3 (network)",
-  "plate": "89 groups, 69% right, 80% top-3 (network)",
-  "area": "527 groups, 24% right, 41% top-3 (network, bigger model)",
+  "guardrail": "88 groups, 42% right, 58% top-3 (line, tuned layers)",
+  "lamp": "88 groups, 27% right, 42% top-3 (line, tuned layers)",
+  "bollard": "5 groups, 67% right, 67% top-3 (line, tuned layers)",
+  "plate": "89 groups, 70% right, 81% top-3 (network)",
+  "area": "527 groups, 24% right, 42% top-3 (network, bigger model)",
   "det_pole": "2 groups, 96% right, 100% top-3 (line)",
   "det_sign": "2 groups, 98% right, 100% top-3 (line)",
   "det_guardrail": "2 groups, 92% right, 100% top-3 (line)",
   "det_lamp": "2 groups, 99% right, 100% top-3 (line)",
   "det_bollard": "2 groups, 99% right, 100% top-3 (line)",
-  "whole spot": "56% from the views, 65% with everything (3012 unseen spots)"
+  "whole spot": "56% from the views, 61% with everything (3012 unseen spots)"
  },
  "examples": {
   "bollard": 9509,
@@ -35,14 +35,58 @@
   "sign": 42397
  },
  "with_pictures": 255053,
+ "finetune": {
+  "gain": 0.0268,
+  "per": {
+   "guardrail": [
+    0.273,
+    0.313
+   ],
+   "lamp": [
+    0.147,
+    0.166
+   ],
+   "plate": [
+    0.433,
+    0.41
+   ],
+   "pole": [
+    0.28,
+    0.333
+   ],
+   "scene": [
+    0.31,
+    0.33
+   ],
+   "sign": [
+    0.151,
+    0.196
+   ]
+  },
+  "n": 26455,
+  "sessions": 10,
+  "total_steps": 2500,
+  "published": true,
+  "ver": 2,
+  "minutes": 120.0,
+  "session": {
+   "n": 12000,
+   "steps": 250,
+   "epochs": 2,
+   "acc_first_look": 0.583,
+   "total_steps": 2500,
+   "sessions": 10,
+   "minutes": 10.0
+  }
+ },
  "ft_session": {
   "n": 12000,
   "steps": 250,
   "epochs": 2,
-  "acc_first_look": 0.575,
-  "total_steps": 2250,
-  "sessions": 9,
-  "minutes": 8.4
+  "acc_first_look": 0.583,
+  "total_steps": 2500,
+  "sessions": 10,
+  "minutes": 10.0
  },
  "big_read": [
   255053,
