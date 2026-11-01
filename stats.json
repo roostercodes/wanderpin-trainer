@@ -1,51 +1,51 @@
 {
- "at": "2026-11-01T01:50:43.227181+00:00",
- "minutes": 90.8,
- "visits": 5739,
- "photos": 7030,
+ "at": "2026-11-01T03:26:26.184558+00:00",
+ "minutes": 93.8,
+ "visits": 4742,
+ "photos": 5576,
  "plates": 0,
  "heads": {
   "scene": "88 groups, 50% right, 71% top-3 (line, bigger model)",
   "pole": "88 groups, 40% right, 61% top-3 (line, bigger model)",
-  "sign": "88 groups, 24% right, 41% top-3 (line, tuned layers)",
-  "guardrail": "88 groups, 42% right, 58% top-3 (line, tuned layers)",
-  "lamp": "88 groups, 29% right, 41% top-3 (network, tuned layers)",
-  "bollard": "88 groups, 42% right, 57% top-3 (network)",
-  "plate": "89 groups, 69% right, 80% top-3 (network)",
-  "area": "527 groups, 24% right, 42% top-3 (network, bigger model)",
+  "sign": "88 groups, 24% right, 40% top-3 (line, bigger model)",
+  "guardrail": "88 groups, 41% right, 58% top-3 (line, tuned layers)",
+  "lamp": "88 groups, 29% right, 42% top-3 (network, tuned layers)",
+  "bollard": "88 groups, 42% right, 56% top-3 (network)",
+  "plate": "89 groups, 70% right, 81% top-3 (network)",
+  "area": "526 groups, 25% right, 42% top-3 (network, bigger model)",
   "det_pole": "2 groups, 96% right, 100% top-3 (line)",
-  "det_sign": "2 groups, 99% right, 100% top-3 (line)",
+  "det_sign": "2 groups, 98% right, 100% top-3 (line)",
   "det_guardrail": "2 groups, 94% right, 100% top-3 (line)",
   "det_lamp": "2 groups, 100% right, 100% top-3 (line)",
-  "det_bollard": "2 groups, 98% right, 100% top-3 (line)",
-  "whole spot": "57% from the views, 66% with everything (3130 unseen spots)"
+  "det_bollard": "2 groups, 99% right, 100% top-3 (line)",
+  "whole spot": "57% from the views, 65% with everything (3146 unseen spots)"
  },
  "examples": {
-  "bollard": 10651,
+  "bollard": 10743,
   "det_bollard": 8000,
   "det_guardrail": 8000,
   "det_lamp": 8000,
   "det_pole": 8000,
   "det_sign": 8000,
-  "guardrail": 54630,
-  "lamp": 26936,
+  "guardrail": 55056,
+  "lamp": 27264,
   "plate": 14096,
-  "pole": 67410,
+  "pole": 67478,
   "scene": 70400,
-  "sign": 50266
+  "sign": 50895
  },
- "with_pictures": 273466,
+ "with_pictures": 274919,
  "ft_session": {
   "n": 12000,
   "steps": 250,
   "epochs": 2,
-  "acc_first_look": 0.638,
-  "total_steps": 4750,
-  "sessions": 19,
-  "minutes": 9.3
+  "acc_first_look": 0.645,
+  "total_steps": 5000,
+  "sessions": 20,
+  "minutes": 9.9
  },
  "big_read": [
-  273466,
-  273466
+  274919,
+  274919
  ]
 }
