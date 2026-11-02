@@ -1,18 +1,18 @@
 {
- "at": "2026-11-02T10:25:37.802579+00:00",
- "minutes": 76.5,
- "visits": 4336,
- "photos": 4846,
+ "at": "2026-11-02T11:39:31.381217+00:00",
+ "minutes": 71.7,
+ "visits": 0,
+ "photos": 0,
  "plates": 0,
  "heads": {
   "scene": "88 groups, 50% right, 71% top-3 (line, bigger model)",
   "pole": "88 groups, 40% right, 61% top-3 (line, bigger model)",
   "sign": "88 groups, 24% right, 40% top-3 (line, bigger model)",
   "guardrail": "88 groups, 40% right, 57% top-3 (line, tuned layers)",
-  "lamp": "88 groups, 27% right, 40% top-3 (network, tuned layers)",
+  "lamp": "88 groups, 28% right, 40% top-3 (network, tuned layers)",
   "bollard": "86 groups, 40% right, 55% top-3 (network, tuned layers)",
-  "plate": "89 groups, 69% right, 80% top-3 (network)",
-  "area": "527 groups, 24% right, 42% top-3 (network, bigger model)",
+  "plate": "89 groups, 70% right, 81% top-3 (network)",
+  "area": "527 groups, 25% right, 42% top-3 (network, bigger model)",
   "det_pole": "2 groups, 97% right, 100% top-3 (line)",
   "det_sign": "2 groups, 97% right, 100% top-3 (line)",
   "det_guardrail": "2 groups, 92% right, 100% top-3 (line)",
@@ -35,14 +35,57 @@
   "sign": 64613
  },
  "with_pictures": 304422,
+ "finetune": {
+  "gain": -0.0003,
+  "per": {
+   "guardrail": [
+    0.297,
+    0.311
+   ],
+   "lamp": [
+    0.14,
+    0.134
+   ],
+   "plate": [
+    0.404,
+    0.347
+   ],
+   "pole": [
+    0.277,
+    0.282
+   ],
+   "scene": [
+    0.369,
+    0.387
+   ],
+   "sign": [
+    0.159,
+    0.172
+   ]
+  },
+  "n": 26390,
+  "sessions": 42,
+  "total_steps": 10500,
+  "published": false,
+  "minutes": 13.6,
+  "session": {
+   "n": 12000,
+   "steps": 250,
+   "epochs": 2,
+   "acc_first_look": 0.723,
+   "total_steps": 10500,
+   "sessions": 42,
+   "minutes": 10.0
+  }
+ },
  "ft_session": {
   "n": 12000,
   "steps": 250,
   "epochs": 2,
-  "acc_first_look": 0.714,
-  "total_steps": 10250,
-  "sessions": 41,
-  "minutes": 5.4
+  "acc_first_look": 0.723,
+  "total_steps": 10500,
+  "sessions": 42,
+  "minutes": 10.0
  },
  "big_read": [
   304422,
