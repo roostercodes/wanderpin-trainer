@@ -1,8 +1,8 @@
 {
- "at": "2026-11-05T00:01:53.887494+00:00",
- "minutes": 94.2,
- "visits": 4253,
- "photos": 5261,
+ "at": "2026-11-05T01:36:00.712394+00:00",
+ "minutes": 92.6,
+ "visits": 4556,
+ "photos": 5469,
  "plates": 0,
  "heads": {
   "scene": "88 groups, 50% right, 71% top-3 (line, bigger model)",
@@ -10,42 +10,42 @@
   "sign": "88 groups, 24% right, 40% top-3 (line, tuned layers)",
   "guardrail": "88 groups, 40% right, 57% top-3 (line, tuned layers)",
   "lamp": "88 groups, 24% right, 36% top-3 (line, tuned layers)",
-  "bollard": "88 groups, 38% right, 53% top-3 (network)",
+  "bollard": "88 groups, 37% right, 53% top-3 (network)",
   "plate": "89 groups, 70% right, 81% top-3 (network)",
   "area": "527 groups, 25% right, 42% top-3 (network, bigger model)",
-  "det_pole": "2 groups, 97% right, 100% top-3 (line)",
+  "det_pole": "2 groups, 96% right, 100% top-3 (line)",
   "det_sign": "2 groups, 98% right, 100% top-3 (line)",
-  "det_guardrail": "2 groups, 93% right, 100% top-3 (line)",
+  "det_guardrail": "2 groups, 94% right, 100% top-3 (line)",
   "det_lamp": "2 groups, 99% right, 100% top-3 (line)",
   "det_bollard": "2 groups, 98% right, 100% top-3 (line)",
-  "whole spot": "55% from the views, 64% with everything (3892 unseen spots)"
+  "whole spot": "54% from the views, 64% with everything (3902 unseen spots)"
  },
  "examples": {
-  "bollard": 18366,
+  "bollard": 18508,
   "det_bollard": 8000,
   "det_guardrail": 8000,
   "det_lamp": 8000,
   "det_pole": 8000,
   "det_sign": 8000,
-  "guardrail": 66004,
-  "lamp": 48774,
+  "guardrail": 66106,
+  "lamp": 49064,
   "plate": 14096,
   "pole": 70400,
   "scene": 70400,
   "sign": 67753
  },
- "with_pictures": 327607,
+ "with_pictures": 328001,
  "ft_session": {
   "n": 12000,
   "steps": 250,
   "epochs": 2,
-  "acc_first_look": 0.778,
-  "total_steps": 20250,
-  "sessions": 81,
-  "minutes": 10.8
+  "acc_first_look": 0.782,
+  "total_steps": 20500,
+  "sessions": 82,
+  "minutes": 9.9
  },
  "big_read": [
-  327607,
-  327607
+  328001,
+  328001
  ]
 }
