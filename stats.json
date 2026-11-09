@@ -1,8 +1,8 @@
 {
- "at": "2026-11-09T16:35:36.544542+00:00",
- "minutes": 71.9,
- "visits": 7846,
- "photos": 10049,
+ "at": "2026-11-09T17:47:37.615037+00:00",
+ "minutes": 70.4,
+ "visits": 0,
+ "photos": 0,
  "plates": 0,
  "heads": {
   "scene": "88 groups, 50% right, 71% top-3 (line, bigger model)",
@@ -11,7 +11,7 @@
   "guardrail": "88 groups, 40% right, 56% top-3 (line, tuned layers)",
   "lamp": "88 groups, 21% right, 33% top-3 (line, tuned layers)",
   "bollard": "88 groups, 34% right, 51% top-3 (network)",
-  "plate": "89 groups, 69% right, 80% top-3 (network)",
+  "plate": "89 groups, 70% right, 81% top-3 (network)",
   "area": "528 groups, 24% right, 42% top-3 (network, bigger model)",
   "det_pole": "2 groups, 96% right, 100% top-3 (line)",
   "det_sign": "2 groups, 98% right, 100% top-3 (line)",
@@ -35,14 +35,61 @@
   "sign": 68045
  },
  "with_pictures": 347177,
+ "finetune": {
+  "gain": -0.014,
+  "per": {
+   "bollard": [
+    0.302,
+    0.264
+   ],
+   "guardrail": [
+    0.294,
+    0.283
+   ],
+   "lamp": [
+    0.14,
+    0.131
+   ],
+   "plate": [
+    0.404,
+    0.314
+   ],
+   "pole": [
+    0.283,
+    0.286
+   ],
+   "scene": [
+    0.327,
+    0.354
+   ],
+   "sign": [
+    0.173,
+    0.164
+   ]
+  },
+  "n": 26486,
+  "sessions": 161,
+  "total_steps": 40250,
+  "published": false,
+  "minutes": 13.3,
+  "session": {
+   "n": 12000,
+   "steps": 250,
+   "epochs": 2,
+   "acc_first_look": 0.832,
+   "total_steps": 40250,
+   "sessions": 161,
+   "minutes": 10.0
+  }
+ },
  "ft_session": {
   "n": 12000,
   "steps": 250,
   "epochs": 2,
-  "acc_first_look": 0.838,
-  "total_steps": 40000,
-  "sessions": 160,
-  "minutes": 6.0
+  "acc_first_look": 0.832,
+  "total_steps": 40250,
+  "sessions": 161,
+  "minutes": 10.0
  },
  "big_read": [
   347177,
