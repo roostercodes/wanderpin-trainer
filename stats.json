@@ -1,51 +1,51 @@
 {
- "at": "2026-11-10T08:47:56.626223+00:00",
- "minutes": 96.4,
- "visits": 4556,
- "photos": 5513,
+ "at": "2026-11-10T10:01:01.345644+00:00",
+ "minutes": 71.8,
+ "visits": 7923,
+ "photos": 9872,
  "plates": 0,
  "heads": {
   "scene": "88 groups, 50% right, 71% top-3 (line, bigger model)",
-  "pole": "88 groups, 41% right, 61% top-3 (line, bigger model)",
+  "pole": "88 groups, 40% right, 61% top-3 (line, bigger model)",
   "sign": "88 groups, 25% right, 41% top-3 (line, bigger model)",
   "guardrail": "88 groups, 40% right, 56% top-3 (line, tuned layers)",
-  "lamp": "88 groups, 21% right, 33% top-3 (line, tuned layers)",
-  "bollard": "88 groups, 34% right, 51% top-3 (network)",
-  "plate": "89 groups, 70% right, 81% top-3 (network)",
-  "area": "527 groups, 25% right, 42% top-3 (network, bigger model)",
-  "det_pole": "2 groups, 96% right, 100% top-3 (line)",
+  "lamp": "88 groups, 20% right, 32% top-3 (line, tuned layers)",
+  "bollard": "88 groups, 35% right, 52% top-3 (network)",
+  "plate": "89 groups, 69% right, 80% top-3 (network)",
+  "area": "528 groups, 26% right, 44% top-3 (network, bigger model)",
+  "det_pole": "2 groups, 97% right, 100% top-3 (line)",
   "det_sign": "2 groups, 98% right, 100% top-3 (line)",
-  "det_guardrail": "2 groups, 93% right, 100% top-3 (line)",
-  "det_lamp": "2 groups, 100% right, 100% top-3 (line)",
+  "det_guardrail": "2 groups, 94% right, 100% top-3 (line)",
+  "det_lamp": "2 groups, 99% right, 100% top-3 (line)",
   "det_bollard": "2 groups, 98% right, 100% top-3 (line)",
-  "whole spot": "52% from the views, 62% with everything (4946 unseen spots)"
+  "whole spot": "52% from the views, 62% with everything (4956 unseen spots)"
  },
  "examples": {
-  "bollard": 32648,
+  "bollard": 32813,
   "det_bollard": 8000,
   "det_guardrail": 8000,
   "det_lamp": 8000,
   "det_pole": 8000,
   "det_sign": 8000,
-  "guardrail": 68195,
-  "lamp": 66666,
+  "guardrail": 68199,
+  "lamp": 66788,
   "plate": 14096,
   "pole": 70400,
   "scene": 70400,
-  "sign": 68117
+  "sign": 68119
  },
- "with_pictures": 348332,
+ "with_pictures": 348461,
  "ft_session": {
   "n": 12000,
   "steps": 250,
   "epochs": 2,
-  "acc_first_look": 0.838,
-  "total_steps": 42750,
-  "sessions": 171,
-  "minutes": 10.2
+  "acc_first_look": 0.843,
+  "total_steps": 43000,
+  "sessions": 172,
+  "minutes": 6.1
  },
  "big_read": [
-  348332,
-  348332
+  348461,
+  348461
  ]
 }
