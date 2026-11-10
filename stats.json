@@ -1,51 +1,51 @@
 {
- "at": "2026-11-10T19:57:14.080901+00:00",
- "minutes": 91.4,
- "visits": 5010,
- "photos": 6253,
+ "at": "2026-11-10T21:23:39.940985+00:00",
+ "minutes": 84.5,
+ "visits": 5416,
+ "photos": 6693,
  "plates": 0,
  "heads": {
   "scene": "88 groups, 50% right, 71% top-3 (line, bigger model)",
   "pole": "88 groups, 40% right, 61% top-3 (line, bigger model)",
-  "sign": "88 groups, 25% right, 41% top-3 (line, bigger model)",
+  "sign": "88 groups, 24% right, 41% top-3 (line, bigger model)",
   "guardrail": "88 groups, 40% right, 57% top-3 (line, tuned layers)",
   "lamp": "88 groups, 21% right, 33% top-3 (line, tuned layers)",
   "bollard": "88 groups, 35% right, 52% top-3 (network)",
   "plate": "89 groups, 69% right, 80% top-3 (network)",
-  "area": "527 groups, 25% right, 42% top-3 (network, bigger model)",
+  "area": "528 groups, 25% right, 43% top-3 (network, bigger model)",
   "det_pole": "2 groups, 97% right, 100% top-3 (line)",
   "det_sign": "2 groups, 98% right, 100% top-3 (line)",
   "det_guardrail": "2 groups, 94% right, 100% top-3 (line)",
   "det_lamp": "2 groups, 99% right, 100% top-3 (line)",
   "det_bollard": "2 groups, 99% right, 100% top-3 (line)",
-  "whole spot": "52% from the views, 63% with everything (5047 unseen spots)"
+  "whole spot": "52% from the views, 63% with everything (5055 unseen spots)"
  },
  "examples": {
-  "bollard": 33618,
+  "bollard": 33773,
   "det_bollard": 8000,
   "det_guardrail": 8000,
   "det_lamp": 8000,
   "det_pole": 8000,
   "det_sign": 8000,
-  "guardrail": 68279,
-  "lamp": 67206,
+  "guardrail": 68297,
+  "lamp": 67264,
   "plate": 14096,
   "pole": 70400,
   "scene": 70400,
-  "sign": 68149
+  "sign": 68151
  },
- "with_pictures": 349006,
+ "with_pictures": 349086,
  "ft_session": {
   "n": 12000,
   "steps": 250,
   "epochs": 2,
-  "acc_first_look": 0.847,
-  "total_steps": 44750,
-  "sessions": 179,
-  "minutes": 6.9
+  "acc_first_look": 0.845,
+  "total_steps": 45000,
+  "sessions": 180,
+  "minutes": 8.4
  },
  "big_read": [
-  349006,
-  349006
+  349086,
+  349086
  ]
 }
