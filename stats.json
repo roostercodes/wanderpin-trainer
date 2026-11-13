@@ -1,51 +1,51 @@
 {
- "at": "2026-11-13T04:50:37.334225+00:00",
- "minutes": 95.1,
- "visits": 4655,
- "photos": 5557,
+ "at": "2026-11-13T06:28:13.146467+00:00",
+ "minutes": 96.3,
+ "visits": 4528,
+ "photos": 5526,
  "plates": 0,
  "heads": {
   "scene": "88 groups, 50% right, 71% top-3 (line, bigger model)",
   "pole": "88 groups, 41% right, 61% top-3 (line, bigger model)",
   "sign": "88 groups, 25% right, 40% top-3 (line, tuned layers)",
   "guardrail": "88 groups, 40% right, 56% top-3 (line, tuned layers)",
-  "lamp": "88 groups, 20% right, 32% top-3 (line, tuned layers)",
-  "bollard": "88 groups, 34% right, 50% top-3 (network)",
+  "lamp": "88 groups, 21% right, 33% top-3 (line, tuned layers)",
+  "bollard": "88 groups, 35% right, 51% top-3 (network)",
   "plate": "89 groups, 70% right, 81% top-3 (network)",
-  "area": "527 groups, 26% right, 43% top-3 (network, bigger model)",
+  "area": "528 groups, 25% right, 43% top-3 (network, bigger model)",
   "det_pole": "2 groups, 97% right, 100% top-3 (line)",
   "det_sign": "2 groups, 98% right, 100% top-3 (line)",
   "det_guardrail": "2 groups, 93% right, 100% top-3 (line)",
   "det_lamp": "2 groups, 99% right, 100% top-3 (line)",
   "det_bollard": "2 groups, 98% right, 100% top-3 (line)",
-  "whole spot": "52% from the views, 61% with everything (5426 unseen spots)"
+  "whole spot": "51% from the views, 61% with everything (5437 unseen spots)"
  },
  "examples": {
-  "bollard": 38152,
+  "bollard": 38213,
   "det_bollard": 8000,
   "det_guardrail": 8000,
   "det_lamp": 8000,
   "det_pole": 8000,
   "det_sign": 8000,
   "guardrail": 68615,
-  "lamp": 68727,
+  "lamp": 68745,
   "plate": 14096,
   "pole": 70400,
   "scene": 70400,
   "sign": 68323
  },
- "with_pictures": 351131,
+ "with_pictures": 351149,
  "ft_session": {
   "n": 12000,
   "steps": 250,
   "epochs": 2,
-  "acc_first_look": 0.862,
-  "total_steps": 54750,
-  "sessions": 219,
+  "acc_first_look": 0.858,
+  "total_steps": 55000,
+  "sessions": 220,
   "minutes": 10.1
  },
  "big_read": [
-  351131,
-  351131
+  351149,
+  351149
  ]
 }
