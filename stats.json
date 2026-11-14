@@ -1,51 +1,51 @@
 {
- "at": "2026-11-14T10:33:53.449490+00:00",
- "minutes": 96.6,
- "visits": 4553,
- "photos": 5524,
+ "at": "2026-11-14T11:59:59.399823+00:00",
+ "minutes": 84.8,
+ "visits": 5721,
+ "photos": 6850,
  "plates": 0,
  "heads": {
-  "scene": "88 groups, 49% right, 71% top-3 (line, bigger model)",
+  "scene": "88 groups, 50% right, 71% top-3 (line, bigger model)",
   "pole": "88 groups, 41% right, 61% top-3 (line, bigger model)",
   "sign": "88 groups, 25% right, 41% top-3 (line, bigger model)",
   "guardrail": "88 groups, 40% right, 56% top-3 (line, tuned layers)",
-  "lamp": "88 groups, 21% right, 32% top-3 (line, tuned layers)",
-  "bollard": "88 groups, 35% right, 51% top-3 (network)",
-  "plate": "89 groups, 70% right, 81% top-3 (network)",
+  "lamp": "88 groups, 21% right, 33% top-3 (line, tuned layers)",
+  "bollard": "88 groups, 34% right, 51% top-3 (network)",
+  "plate": "89 groups, 69% right, 80% top-3 (network)",
   "area": "527 groups, 25% right, 43% top-3 (network, bigger model)",
   "det_pole": "2 groups, 97% right, 100% top-3 (line)",
   "det_sign": "2 groups, 98% right, 100% top-3 (line)",
-  "det_guardrail": "2 groups, 93% right, 100% top-3 (line)",
+  "det_guardrail": "2 groups, 94% right, 100% top-3 (line)",
   "det_lamp": "2 groups, 99% right, 100% top-3 (line)",
-  "det_bollard": "2 groups, 99% right, 100% top-3 (line)",
-  "whole spot": "52% from the views, 61% with everything (5636 unseen spots)"
+  "det_bollard": "2 groups, 98% right, 100% top-3 (line)",
+  "whole spot": "52% from the views, 62% with everything (5649 unseen spots)"
  },
  "examples": {
-  "bollard": 40069,
+  "bollard": 40154,
   "det_bollard": 8000,
   "det_guardrail": 8000,
   "det_lamp": 8000,
   "det_pole": 8000,
   "det_sign": 8000,
-  "guardrail": 68789,
-  "lamp": 69012,
+  "guardrail": 68793,
+  "lamp": 69028,
   "plate": 14096,
   "pole": 70400,
   "scene": 70400,
-  "sign": 68423
+  "sign": 68437
  },
- "with_pictures": 351736,
+ "with_pictures": 351770,
  "ft_session": {
   "n": 12000,
   "steps": 250,
   "epochs": 2,
-  "acc_first_look": 0.867,
-  "total_steps": 60000,
-  "sessions": 240,
-  "minutes": 10.1
+  "acc_first_look": 0.868,
+  "total_steps": 60250,
+  "sessions": 241,
+  "minutes": 8.6
  },
  "big_read": [
-  351736,
-  351736
+  351770,
+  351770
  ]
 }
