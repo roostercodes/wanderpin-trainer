@@ -1,51 +1,51 @@
 {
- "at": "2026-11-21T13:10:06.448039+00:00",
- "minutes": 95.1,
- "visits": 4432,
- "photos": 5447,
+ "at": "2026-11-21T14:28:54.942384+00:00",
+ "minutes": 77.6,
+ "visits": 4144,
+ "photos": 4872,
  "plates": 0,
  "heads": {
-  "scene": "88 groups, 50% right, 72% top-3 (line, bigger model)",
+  "scene": "88 groups, 50% right, 71% top-3 (line, bigger model)",
   "pole": "88 groups, 41% right, 61% top-3 (line, bigger model)",
   "sign": "88 groups, 25% right, 41% top-3 (line, bigger model)",
   "guardrail": "88 groups, 40% right, 56% top-3 (line, tuned layers)",
   "lamp": "88 groups, 20% right, 32% top-3 (line, tuned layers)",
   "bollard": "88 groups, 33% right, 50% top-3 (network)",
-  "plate": "89 groups, 70% right, 81% top-3 (network)",
-  "area": "526 groups, 26% right, 43% top-3 (network, bigger model)",
+  "plate": "89 groups, 69% right, 80% top-3 (network)",
+  "area": "526 groups, 26% right, 44% top-3 (network, bigger model)",
   "det_pole": "2 groups, 96% right, 100% top-3 (line)",
   "det_sign": "2 groups, 98% right, 100% top-3 (line)",
   "det_guardrail": "2 groups, 93% right, 100% top-3 (line)",
   "det_lamp": "2 groups, 99% right, 100% top-3 (line)",
   "det_bollard": "2 groups, 98% right, 100% top-3 (line)",
-  "whole spot": "51% from the views, 60% with everything (6562 unseen spots)"
+  "whole spot": "50% from the views, 60% with everything (6569 unseen spots)"
  },
  "examples": {
-  "bollard": 47759,
+  "bollard": 47795,
   "det_bollard": 8000,
   "det_guardrail": 8000,
   "det_lamp": 8000,
   "det_pole": 8000,
   "det_sign": 8000,
-  "guardrail": 69425,
+  "guardrail": 69427,
   "lamp": 69647,
   "plate": 14096,
   "pole": 70400,
   "scene": 70400,
-  "sign": 68911
+  "sign": 68915
  },
- "with_pictures": 353704,
+ "with_pictures": 353715,
  "ft_session": {
   "n": 12000,
   "steps": 250,
   "epochs": 2,
-  "acc_first_look": 0.88,
-  "total_steps": 89750,
-  "sessions": 359,
-  "minutes": 10.2
+  "acc_first_look": 0.878,
+  "total_steps": 90000,
+  "sessions": 360,
+  "minutes": 5.5
  },
  "big_read": [
-  353704,
-  353704
+  353715,
+  353715
  ]
 }
