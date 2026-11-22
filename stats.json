@@ -1,27 +1,27 @@
 {
- "at": "2026-11-22T07:24:37.998581+00:00",
- "minutes": 71.8,
- "visits": 7781,
- "photos": 10001,
+ "at": "2026-11-22T08:45:26.328878+00:00",
+ "minutes": 79.7,
+ "visits": 3725,
+ "photos": 4726,
  "plates": 0,
  "heads": {
   "scene": "88 groups, 50% right, 71% top-3 (line, bigger model)",
-  "pole": "88 groups, 41% right, 61% top-3 (line, bigger model)",
+  "pole": "88 groups, 42% right, 61% top-3 (line, bigger model)",
   "sign": "88 groups, 25% right, 41% top-3 (line, bigger model)",
   "guardrail": "88 groups, 40% right, 56% top-3 (line, tuned layers)",
-  "lamp": "88 groups, 20% right, 32% top-3 (line, tuned layers)",
+  "lamp": "88 groups, 20% right, 33% top-3 (line, tuned layers)",
   "bollard": "88 groups, 33% right, 50% top-3 (network)",
   "plate": "89 groups, 69% right, 80% top-3 (network)",
-  "area": "526 groups, 26% right, 44% top-3 (network, bigger model)",
-  "det_pole": "2 groups, 96% right, 100% top-3 (line)",
+  "area": "526 groups, 26% right, 43% top-3 (network, bigger model)",
+  "det_pole": "2 groups, 97% right, 100% top-3 (line)",
   "det_sign": "2 groups, 98% right, 100% top-3 (line)",
-  "det_guardrail": "2 groups, 93% right, 100% top-3 (line)",
+  "det_guardrail": "2 groups, 92% right, 100% top-3 (line)",
   "det_lamp": "2 groups, 99% right, 100% top-3 (line)",
   "det_bollard": "2 groups, 98% right, 100% top-3 (line)",
-  "whole spot": "50% from the views, 60% with everything (6664 unseen spots)"
+  "whole spot": "50% from the views, 60% with everything (6668 unseen spots)"
  },
  "examples": {
-  "bollard": 48346,
+  "bollard": 48379,
   "det_bollard": 8000,
   "det_guardrail": 8000,
   "det_lamp": 8000,
@@ -34,18 +34,18 @@
   "scene": 70400,
   "sign": 68935
  },
- "with_pictures": 353820,
+ "with_pictures": 353822,
  "ft_session": {
   "n": 12000,
   "steps": 250,
   "epochs": 2,
-  "acc_first_look": 0.876,
-  "total_steps": 93000,
-  "sessions": 372,
-  "minutes": 6.1
+  "acc_first_look": 0.879,
+  "total_steps": 93250,
+  "sessions": 373,
+  "minutes": 5.7
  },
  "big_read": [
-  353820,
-  353820
+  353822,
+  353822
  ]
 }
