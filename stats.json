@@ -1,8 +1,8 @@
 {
- "at": "2026-11-22T16:04:23.488183+00:00",
- "minutes": 95.5,
- "visits": 4312,
- "photos": 5464,
+ "at": "2026-11-22T17:26:28.628291+00:00",
+ "minutes": 80.6,
+ "visits": 3838,
+ "photos": 4619,
  "plates": 0,
  "heads": {
   "scene": "88 groups, 50% right, 71% top-3 (line, bigger model)",
@@ -10,18 +10,18 @@
   "sign": "88 groups, 25% right, 41% top-3 (line, bigger model)",
   "guardrail": "88 groups, 40% right, 56% top-3 (line, tuned layers)",
   "lamp": "88 groups, 20% right, 32% top-3 (line, tuned layers)",
-  "bollard": "88 groups, 33% right, 49% top-3 (network)",
-  "plate": "89 groups, 70% right, 81% top-3 (network)",
-  "area": "527 groups, 26% right, 44% top-3 (network, bigger model)",
-  "det_pole": "2 groups, 96% right, 100% top-3 (line)",
+  "bollard": "88 groups, 34% right, 50% top-3 (network)",
+  "plate": "89 groups, 69% right, 80% top-3 (network)",
+  "area": "526 groups, 26% right, 44% top-3 (network, bigger model)",
+  "det_pole": "2 groups, 97% right, 100% top-3 (line)",
   "det_sign": "2 groups, 98% right, 100% top-3 (line)",
-  "det_guardrail": "2 groups, 94% right, 100% top-3 (line)",
+  "det_guardrail": "2 groups, 93% right, 100% top-3 (line)",
   "det_lamp": "2 groups, 99% right, 100% top-3 (line)",
   "det_bollard": "2 groups, 98% right, 100% top-3 (line)",
-  "whole spot": "50% from the views, 60% with everything (6709 unseen spots)"
+  "whole spot": "49% from the views, 60% with everything (6712 unseen spots)"
  },
  "examples": {
-  "bollard": 48589,
+  "bollard": 48616,
   "det_bollard": 8000,
   "det_guardrail": 8000,
   "det_lamp": 8000,
@@ -32,20 +32,20 @@
   "plate": 14096,
   "pole": 70400,
   "scene": 70400,
-  "sign": 68937
+  "sign": 68941
  },
- "with_pictures": 353848,
+ "with_pictures": 353854,
  "ft_session": {
   "n": 12000,
   "steps": 250,
   "epochs": 2,
   "acc_first_look": 0.882,
-  "total_steps": 94500,
-  "sessions": 378,
-  "minutes": 10.1
+  "total_steps": 94750,
+  "sessions": 379,
+  "minutes": 5.6
  },
  "big_read": [
-  353848,
-  353848
+  353854,
+  353854
  ]
 }
