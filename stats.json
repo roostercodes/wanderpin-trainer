@@ -1,27 +1,27 @@
 {
- "at": "2026-11-23T21:57:20.111996+00:00",
- "minutes": 81.5,
- "visits": 3716,
- "photos": 4700,
+ "at": "2026-11-23T23:11:06.168896+00:00",
+ "minutes": 72.5,
+ "visits": 6804,
+ "photos": 8852,
  "plates": 0,
  "heads": {
-  "scene": "88 groups, 50% right, 72% top-3 (line, bigger model)",
+  "scene": "88 groups, 50% right, 71% top-3 (line, bigger model)",
   "pole": "88 groups, 41% right, 61% top-3 (line, bigger model)",
-  "sign": "88 groups, 25% right, 40% top-3 (line, tuned layers)",
-  "guardrail": "88 groups, 39% right, 56% top-3 (line, tuned layers)",
-  "lamp": "88 groups, 21% right, 32% top-3 (line, tuned layers)",
-  "bollard": "88 groups, 33% right, 50% top-3 (line, tuned layers)",
+  "sign": "88 groups, 25% right, 41% top-3 (line, bigger model)",
+  "guardrail": "88 groups, 40% right, 56% top-3 (line, tuned layers)",
+  "lamp": "88 groups, 20% right, 32% top-3 (network, bigger model)",
+  "bollard": "88 groups, 33% right, 49% top-3 (network)",
   "plate": "89 groups, 69% right, 80% top-3 (network)",
-  "area": "526 groups, 26% right, 44% top-3 (network, bigger model)",
-  "det_pole": "2 groups, 98% right, 100% top-3 (line)",
+  "area": "525 groups, 25% right, 44% top-3 (network, bigger model)",
+  "det_pole": "2 groups, 97% right, 100% top-3 (line)",
   "det_sign": "2 groups, 98% right, 100% top-3 (line)",
-  "det_guardrail": "2 groups, 92% right, 100% top-3 (line)",
+  "det_guardrail": "2 groups, 94% right, 100% top-3 (line)",
   "det_lamp": "2 groups, 99% right, 100% top-3 (line)",
   "det_bollard": "2 groups, 99% right, 100% top-3 (line)",
-  "whole spot": "50% from the views, 59% with everything (6880 unseen spots)"
+  "whole spot": "50% from the views, 60% with everything (6886 unseen spots)"
  },
  "examples": {
-  "bollard": 49429,
+  "bollard": 49499,
   "det_bollard": 8000,
   "det_guardrail": 8000,
   "det_lamp": 8000,
@@ -32,20 +32,20 @@
   "plate": 14096,
   "pole": 70400,
   "scene": 70400,
-  "sign": 68975
+  "sign": 68977
  },
- "with_pictures": 353981,
+ "with_pictures": 353985,
  "ft_session": {
   "n": 12000,
   "steps": 250,
   "epochs": 2,
-  "acc_first_look": 0.883,
-  "total_steps": 99750,
-  "sessions": 399,
-  "minutes": 5.4
+  "acc_first_look": 0.885,
+  "total_steps": 100000,
+  "sessions": 400,
+  "minutes": 5.9
  },
  "big_read": [
-  353981,
-  353981
+  353985,
+  353985
  ]
 }
