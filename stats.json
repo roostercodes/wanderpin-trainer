@@ -1,27 +1,27 @@
 {
- "at": "2026-11-26T22:53:16.396603+00:00",
- "minutes": 71.9,
- "visits": 2186,
- "photos": 2697,
+ "at": "2026-11-27T00:13:44.598725+00:00",
+ "minutes": 79.4,
+ "visits": 1961,
+ "photos": 2277,
  "plates": 0,
  "heads": {
-  "scene": "88 groups, 50% right, 72% top-3 (line, bigger model)",
+  "scene": "88 groups, 50% right, 71% top-3 (line, bigger model)",
   "pole": "88 groups, 41% right, 61% top-3 (line, bigger model)",
   "sign": "88 groups, 25% right, 41% top-3 (line, bigger model)",
-  "guardrail": "88 groups, 40% right, 55% top-3 (line, tuned layers)",
-  "lamp": "88 groups, 20% right, 32% top-3 (line, tuned layers)",
+  "guardrail": "88 groups, 39% right, 56% top-3 (line, tuned layers)",
+  "lamp": "88 groups, 21% right, 32% top-3 (line, tuned layers)",
   "bollard": "88 groups, 34% right, 50% top-3 (network)",
   "plate": "89 groups, 69% right, 80% top-3 (network)",
-  "area": "526 groups, 26% right, 44% top-3 (network, bigger model)",
+  "area": "525 groups, 25% right, 44% top-3 (network, bigger model)",
   "det_pole": "2 groups, 96% right, 100% top-3 (line)",
   "det_sign": "2 groups, 98% right, 100% top-3 (line)",
   "det_guardrail": "2 groups, 94% right, 100% top-3 (line)",
   "det_lamp": "2 groups, 99% right, 100% top-3 (line)",
   "det_bollard": "2 groups, 98% right, 100% top-3 (line)",
-  "whole spot": "50% from the views, 60% with everything (7216 unseen spots)"
+  "whole spot": "50% from the views, 59% with everything (7226 unseen spots)"
  },
  "examples": {
-  "bollard": 50977,
+  "bollard": 50990,
   "det_bollard": 8000,
   "det_guardrail": 8000,
   "det_lamp": 8000,
@@ -34,18 +34,18 @@
   "scene": 70400,
   "sign": 69055
  },
- "with_pictures": 354165,
+ "with_pictures": 354169,
  "ft_session": {
   "n": 12000,
   "steps": 250,
   "epochs": 2,
-  "acc_first_look": 0.888,
-  "total_steps": 112500,
-  "sessions": 450,
-  "minutes": 5.8
+  "acc_first_look": 0.886,
+  "total_steps": 112750,
+  "sessions": 451,
+  "minutes": 5.5
  },
  "big_read": [
-  354165,
-  354165
+  354169,
+  354169
  ]
 }
