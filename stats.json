@@ -1,8 +1,8 @@
 {
- "at": "2026-11-28T12:08:55.893943+00:00",
+ "at": "2026-11-28T13:34:10.262278+00:00",
  "minutes": 84.0,
- "visits": 1332,
- "photos": 1692,
+ "visits": 1290,
+ "photos": 1613,
  "plates": 0,
  "heads": {
   "scene": "88 groups, 50% right, 71% top-3 (line, bigger model)",
@@ -10,18 +10,18 @@
   "sign": "88 groups, 25% right, 41% top-3 (line, bigger model)",
   "guardrail": "88 groups, 40% right, 56% top-3 (line, tuned layers)",
   "lamp": "88 groups, 20% right, 32% top-3 (line, tuned layers)",
-  "bollard": "88 groups, 33% right, 49% top-3 (network)",
+  "bollard": "88 groups, 33% right, 50% top-3 (network, tuned layers)",
   "plate": "89 groups, 69% right, 80% top-3 (network)",
-  "area": "526 groups, 26% right, 44% top-3 (network, bigger model)",
+  "area": "526 groups, 26% right, 45% top-3 (network, bigger model)",
   "det_pole": "2 groups, 97% right, 100% top-3 (line)",
   "det_sign": "2 groups, 98% right, 100% top-3 (line)",
-  "det_guardrail": "2 groups, 92% right, 100% top-3 (line)",
+  "det_guardrail": "2 groups, 94% right, 100% top-3 (line)",
   "det_lamp": "2 groups, 99% right, 100% top-3 (line)",
   "det_bollard": "2 groups, 98% right, 100% top-3 (line)",
-  "whole spot": "50% from the views, 59% with everything (7367 unseen spots)"
+  "whole spot": "50% from the views, 59% with everything (7371 unseen spots)"
  },
  "examples": {
-  "bollard": 51263,
+  "bollard": 51273,
   "det_bollard": 8000,
   "det_guardrail": 8000,
   "det_lamp": 8000,
@@ -39,9 +39,9 @@
   "n": 12000,
   "steps": 250,
   "epochs": 2,
-  "acc_first_look": 0.897,
-  "total_steps": 119250,
-  "sessions": 477,
+  "acc_first_look": 0.889,
+  "total_steps": 119500,
+  "sessions": 478,
   "minutes": 8.5
  },
  "big_read": [
